@@ -1,0 +1,5 @@
+# Core
+pyyaml>=6.0
+
+# Optional: live market data (not needed for --offline mode)
+yfinance>=0.2.0

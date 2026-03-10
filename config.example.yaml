@@ -1,0 +1,79 @@
+# personal-cfo configuration
+# Copy to config.yaml and edit with your parameters.
+
+life_plan:
+  birth_year: 1980
+  retirement_age: 65
+
+glide_path:
+  # equity_target is your target equity ratio NOW (at baseline_year).
+  # Each year after baseline_year, target drops by annual_derisking.
+  # Example: 20% at age 45, 19% at 46, 18% at 47... down to min_equity_floor.
+  equity_target: 0.20
+  annual_derisking: 0.01      # reduce equity target by 1% per year
+  min_equity_floor: 0.05      # never go below 5% equities
+  drift_tolerance: 0.03       # within ±3% = on_track
+  drift_warning: 0.05         # beyond ±5% = major_drift
+  # baseline_year: 2026       # (optional) year when equity_target was set; defaults to current year
+
+assumptions:
+  monthly_expense: 100000     # monthly living expense in base currency
+  base_currency: TWD
+
+# Assets not in bank statements (real estate, etc.)
+manual_assets:
+  - name: "Primary residence"
+    category: "Real Estate"
+    amount: 20000000
+    currency: TWD
+
+# Transaction classification rules: keyword → category
+#
+# IMPORTANT:
+# - Rules are matched in order. More specific keywords should come FIRST.
+#   Example: "獎金薪資" should come before "薪資" to avoid partial matches.
+# - The classifier checks if keyword appears anywhere in the transaction description.
+# - If no rule matches, the built-in classifier makes a best-effort guess.
+#   For accurate results, set rules for your common transaction types.
+#
+# Special categories:
+# - "internal_transfer": excluded from Income Statement (asset moves, not income/expense)
+#   Use this for transfers between your own accounts.
+#   WARNING: Do NOT mark credit card payments as internal_transfer unless
+#   you also have the CC statement imported (otherwise the expense disappears).
+# - "salary", "income": → Salary/Income bucket
+# - "dividend", "interest_income": → Investment Income bucket
+# - "housing": → Mortgage (principal or interest, auto-detected by description)
+# - "insurance": → Living/Other
+category_rules:
+  "獎金薪資": salary          # bonus salary — put before "薪資"
+  "薪資": salary
+  "salary": salary
+  "payroll": salary
+  "房貸": housing
+  "mortgage": housing
+  "繳放款": housing            # bank loan payment (principal+interest)
+  "股息": dividend
+  "dividend": dividend
+  "配息": dividend
+  "利息": interest_income      # bank interest
+  "匯息": interest_income      # forex interest
+  "保險": insurance
+  "insurance": insurance
+  "信託": capital_transfer     # trust product (redemption/purchase)
+  "贖回": capital_transfer
+  "自扣已入帳": internal_transfer  # CC auto-payment confirmation
+  "回饋入帳": internal_transfer    # cashback credit (zero amount)
+  "轉帳": internal_transfer
+  "transfer": internal_transfer
+
+# Static exchange rates to base currency (used when yfinance unavailable)
+# Format: {FROM}_{TO}: rate
+# WARNING: If a currency appears in your data but is missing here,
+# the amount will be treated as-is (rate=1.0), which is almost certainly wrong.
+fx_rates:
+  USD_TWD: 32.0
+  JPY_TWD: 0.21
+  CNY_TWD: 4.4
+  AUD_TWD: 20.5
+  THB_TWD: 0.92
