@@ -3,6 +3,8 @@
 import sys
 from datetime import datetime
 
+from .models import GlideDiagnosis
+
 _baseline_warned = False
 
 
@@ -62,15 +64,15 @@ def diagnose_drift(actual_equity_ratio, cfg):
         direction = "偏高 (overweight equities)" if drift > 0 else "偏低 (underweight equities)"
         msg = f"Equity allocation significantly off target: {direction}."
 
-    return {
-        "age": age,
-        "target": target,
-        "actual": actual_equity_ratio,
-        "drift": drift,
-        "abs_drift": abs_drift,
-        "status": status,
-        "message": msg,
-    }
+    return GlideDiagnosis(
+        age=age,
+        target=target,
+        actual=actual_equity_ratio,
+        drift=drift,
+        abs_drift=abs_drift,
+        status=status,
+        message=msg,
+    )
 
 
 def glide_path_table(cfg, from_age=None, to_age=None):

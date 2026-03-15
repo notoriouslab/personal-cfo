@@ -67,29 +67,29 @@ class TestDiagnoseDrift:
     def test_on_track(self):
         cfg = _cfg()
         result = diagnose_drift(0.19, cfg)  # target=0.20, drift=-0.01
-        assert result["status"] == "on_track"
+        assert result.status == "on_track"
 
     def test_minor_drift(self):
         cfg = _cfg()
         result = diagnose_drift(0.16, cfg)  # target=0.20, drift=-0.04
-        assert result["status"] == "minor_drift"
+        assert result.status == "minor_drift"
 
     def test_major_drift(self):
         cfg = _cfg()
         result = diagnose_drift(0.10, cfg)  # target=0.20, drift=-0.10
-        assert result["status"] == "major_drift"
+        assert result.status == "major_drift"
 
     def test_overweight_minor(self):
         cfg = _cfg()
         result = diagnose_drift(0.24, cfg)  # +0.04
-        assert result["status"] == "minor_drift"
-        assert "偏高" in result["message"]
+        assert result.status == "minor_drift"
+        assert "偏高" in result.message
 
     def test_underweight_major(self):
         cfg = _cfg()
         result = diagnose_drift(0.05, cfg)  # -0.15
-        assert result["status"] == "major_drift"
-        assert "偏低" in result["message"]
+        assert result.status == "major_drift"
+        assert "偏低" in result.message
 
 
 class TestGlidePathTable:

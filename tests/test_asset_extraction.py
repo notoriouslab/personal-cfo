@@ -16,11 +16,11 @@ class TestSecuritiesTable:
 """
         assets = _parse_assets_from_tables(md, vendor="Broker")
         assert len(assets) == 2  # 小計 excluded
-        assert assets[0]["name"] == "0050 元大台灣50"
-        assert assets[0]["amount"] == 181150  # market value
-        assert assets[0]["category"] == "Equity"
-        assert assets[1]["name"] == "2330 台積電"
-        assert assets[1]["amount"] == 190000
+        assert assets[0].name == "0050 元大台灣50"
+        assert assets[0].amount == 181150  # market value
+        assert assets[0].category == "Equity"
+        assert assets[1].name == "2330 台積電"
+        assert assets[1].amount == 190000
 
     def test_skips_subtotals(self):
         md = """\
@@ -44,10 +44,10 @@ class TestDepositTable:
 """
         assets = _parse_assets_from_tables(md, vendor="Bank")
         assert len(assets) == 2
-        assert assets[0]["category"] == "Cash"
-        assert assets[0]["amount"] == 285680
-        assert assets[1]["category"] == "Fixed Deposit"
-        assert assets[1]["amount"] == 500000
+        assert assets[0].category == "Cash"
+        assert assets[0].amount == 285680
+        assert assets[1].category == "Fixed Deposit"
+        assert assets[1].amount == 500000
 
     def test_foreign_currency_deposit(self):
         md = """\
@@ -57,7 +57,7 @@ class TestDepositTable:
 """
         assets = _parse_assets_from_tables(md, vendor="Bank")
         assert len(assets) == 1
-        assert assets[0]["amount"] == 5000.0
+        assert assets[0].amount == 5000.0
 
 
 class TestLoanTable:
@@ -69,8 +69,8 @@ class TestLoanTable:
 """
         assets = _parse_assets_from_tables(md, vendor="Bank")
         assert len(assets) == 1
-        assert assets[0]["category"] == "Loan"
-        assert assets[0]["amount"] == -4850000  # negative
+        assert assets[0].category == "Loan"
+        assert assets[0].amount == -4850000  # negative
 
 
 class TestTransactionTableExcluded:
@@ -98,6 +98,6 @@ class TestOverviewTable:
 """
         assets = _parse_assets_from_tables(md)
         # Should skip 活期 and 定期 (deposits), keep 基金
-        fund = [a for a in assets if "基金" in a["name"]]
+        fund = [a for a in assets if "基金" in a.name]
         assert len(fund) == 1
-        assert fund[0]["amount"] == 300000
+        assert fund[0].amount == 300000

@@ -1,6 +1,7 @@
 """Tests for accounting engine — classification, IS, BS, cash flow."""
 
 import pytest
+from personal_cfo.models import Transaction
 from personal_cfo.accounting import (
     _classify_tx, compute_income_statement, compute_balance_sheet,
     compute_cash_flow, IS_SALARY, IS_INVEST_INCOME, IS_CAPEX,
@@ -145,16 +146,16 @@ class TestComputeIS:
     @pytest.fixture
     def sample_transactions(self):
         return [
-            {"description": "Salary", "amount": 150000, "currency": "TWD",
-             "category": "salary", "date": "2026-01-05", "account": "A"},
-            {"description": "Dividend", "amount": 6000, "currency": "TWD",
-             "category": "dividend", "date": "2026-01-18", "account": "B"},
-            {"description": "Grocery", "amount": -3500, "currency": "TWD",
-             "category": "", "date": "2026-01-10", "account": "A"},
-            {"description": "Mortgage Payment", "amount": -25000, "currency": "TWD",
-             "category": "housing", "date": "2026-01-10", "account": "A"},
-            {"description": "CC Payment", "amount": -55000, "currency": "TWD",
-             "category": "internal_transfer", "date": "2026-01-20", "account": "A"},
+            Transaction(description="Salary", amount=150000, currency="TWD",
+                        category="salary", date="2026-01-05", account="A"),
+            Transaction(description="Dividend", amount=6000, currency="TWD",
+                        category="dividend", date="2026-01-18", account="B"),
+            Transaction(description="Grocery", amount=-3500, currency="TWD",
+                        category="", date="2026-01-10", account="A"),
+            Transaction(description="Mortgage Payment", amount=-25000, currency="TWD",
+                        category="housing", date="2026-01-10", account="A"),
+            Transaction(description="CC Payment", amount=-55000, currency="TWD",
+                        category="internal_transfer", date="2026-01-20", account="A"),
         ]
 
     def test_buckets_sum(self, sample_transactions):
@@ -168,12 +169,12 @@ class TestComputeIS:
     def test_internal_transfer_excluded(self, sample_transactions):
         to_twd = lambda cur, amt: float(amt)
         _, classified = compute_income_statement(sample_transactions, to_twd)
-        descs = [t["description"] for t in classified]
+        descs = [t.description for t in classified]
         assert "CC Payment" not in descs
 
     def test_fx_conversion(self):
-        tx = [{"description": "Dividend", "amount": 100, "currency": "USD",
-               "category": "dividend", "date": "2026-01-01", "account": "A"}]
+        tx = [Transaction(description="Dividend", amount=100, currency="USD",
+                          category="dividend", date="2026-01-01", account="A")]
         to_twd = lambda cur, amt: float(amt) * 32.0 if cur == "USD" else float(amt)
         buckets, _ = compute_income_statement(tx, to_twd)
         assert buckets[IS_INVEST_INCOME] == pytest.approx(3200.0)
@@ -183,24 +184,25 @@ class TestComputeIS:
 
 class TestComputeBS:
     def test_basic_balance_sheet(self):
+        from personal_cfo.models import Asset
         assets = [
-            {"name": "Checking", "category": "Cash", "amount": 1000000, "currency": "TWD"},
-            {"name": "ETF", "category": "Equity", "amount": 500000, "currency": "TWD"},
-            {"name": "Mortgage", "category": "Loan", "amount": -5000000, "currency": "TWD"},
+            Asset(name="Checking", category="Cash", amount=1000000, currency="TWD"),
+            Asset(name="ETF", category="Equity", amount=500000, currency="TWD"),
+            Asset(name="Mortgage", category="Loan", amount=-5000000, currency="TWD"),
         ]
         to_twd = lambda cur, amt: float(amt)
         bs = compute_balance_sheet(assets, [], to_twd)
-        assert bs["risk_buckets"]["liquid_cash"] == 1000000
-        assert bs["risk_buckets"]["equities"] == 500000
-        assert bs["total_liabilities"] == 5000000
-        assert bs["net_worth"] == 1500000 - 5000000
+        assert bs.risk_buckets["liquid_cash"] == 1000000
+        assert bs.risk_buckets["equities"] == 500000
+        assert bs.total_liabilities == 5000000
+        assert bs.net_worth == 1500000 - 5000000
 
     def test_manual_assets_added(self):
         manual = [{"name": "House", "category": "Real Estate",
                    "amount": 30000000, "currency": "TWD"}]
         to_twd = lambda cur, amt: float(amt)
         bs = compute_balance_sheet([], manual, to_twd)
-        assert bs["risk_buckets"]["real_estate"] == 30000000
+        assert bs.risk_buckets["real_estate"] == 30000000
 
 
 # ---------- compute_cash_flow ----------
@@ -218,6 +220,6 @@ class TestComputeCashFlow:
             IS_FEES: -200,
         }
         cf = compute_cash_flow(buckets)
-        assert cf["inflow"] == 156000
-        assert cf["outflow"] == -110200
-        assert cf["net_flow"] == pytest.approx(45800)
+        assert cf.inflow == 156000
+        assert cf.outflow == -110200
+        assert cf.net_flow == pytest.approx(45800)

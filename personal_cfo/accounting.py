@@ -1,5 +1,7 @@
 """Deterministic accounting engine — 8-bucket Income Statement + Balance Sheet + Cash Flow."""
 
+from .models import Transaction, Asset, ClassifiedTx, BalanceSheet, CashFlow
+
 
 # Asset category → accounting group mapping
 _ASSET_GROUP = {
@@ -124,26 +126,30 @@ def compute_income_statement(transactions, to_twd):
         classified_tx: list of dicts with bucket assignment and TWD amount
     """
     buckets = {k: 0.0 for k in _IS_KEYS}
-    classified_tx = []
+    classified_tx: list[ClassifiedTx] = []
 
     for t in transactions:
-        amt = t["amount"]
-        currency = t.get("currency", "TWD")
+        amt = t.amount if isinstance(t, Transaction) else t["amount"]
+        currency = t.currency if isinstance(t, Transaction) else t.get("currency", "TWD")
+        desc = t.description if isinstance(t, Transaction) else t.get("description", "")
+        cat = t.category if isinstance(t, Transaction) else t.get("category", "")
+        date = t.date if isinstance(t, Transaction) else t.get("date", "")
+        account = t.account if isinstance(t, Transaction) else t.get("account", "")
         amt_twd = to_twd(currency, amt)
 
-        bucket = _classify_tx(t.get("description", ""), t.get("category", ""), amt)
+        bucket = _classify_tx(desc, cat, amt)
         if bucket is None:
             continue  # internal_transfer, skip
         buckets[bucket] += amt_twd
-        classified_tx.append({
-            "date": t.get("date", ""),
-            "description": t.get("description", ""),
-            "amount_twd": amt_twd,
-            "currency": currency,
-            "amount_orig": amt,
-            "account": t.get("account", ""),
-            "bucket": bucket,
-        })
+        classified_tx.append(ClassifiedTx(
+            date=date,
+            description=desc,
+            amount_twd=amt_twd,
+            currency=currency,
+            amount_orig=amt,
+            account=account,
+            bucket=bucket,
+        ))
 
     return buckets, classified_tx
 
@@ -189,15 +195,18 @@ def compute_balance_sheet(assets, manual_assets, to_twd):
 
     # From parsed assets
     for a in assets:
-        _add_asset(
-            a.get("name", "Unknown"),
-            a.get("category", "Unknown"),
-            a["amount"],
-            a.get("currency", "TWD"),
-            a.get("vendor", ""),
-        )
+        if isinstance(a, Asset):
+            _add_asset(a.name, a.category, a.amount, a.currency, a.vendor)
+        else:
+            _add_asset(
+                a.get("name", "Unknown"),
+                a.get("category", "Unknown"),
+                a["amount"],
+                a.get("currency", "TWD"),
+                a.get("vendor", ""),
+            )
 
-    # From manual_assets in config
+    # From manual_assets in config (always dicts from YAML)
     for ma in manual_assets:
         _add_asset(
             ma.get("name", "Manual"),
@@ -210,14 +219,14 @@ def compute_balance_sheet(assets, manual_assets, to_twd):
     total_assets = sum(risk_buckets.values())
     net_worth = total_assets - total_liabilities
 
-    return {
-        "details": details,
-        "risk_buckets": risk_buckets,
-        "total_assets": total_assets,
-        "total_liabilities": total_liabilities,
-        "net_worth": net_worth,
-        "total_cash": risk_buckets["liquid_cash"],
-    }
+    return BalanceSheet(
+        details=details,
+        risk_buckets=risk_buckets,
+        total_assets=total_assets,
+        total_liabilities=total_liabilities,
+        net_worth=net_worth,
+        total_cash=risk_buckets["liquid_cash"],
+    )
 
 
 def compute_cash_flow(is_buckets):
@@ -241,8 +250,8 @@ def compute_cash_flow(is_buckets):
         else:
             outflow += val  # negative
 
-    return {
-        "inflow": inflow,
-        "outflow": outflow,
-        "net_flow": inflow + outflow,
-    }
+    return CashFlow(
+        inflow=inflow,
+        outflow=outflow,
+        net_flow=inflow + outflow,
+    )
