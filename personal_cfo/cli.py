@@ -10,6 +10,7 @@ from pathlib import Path
 from . import __version__
 from .config import load_config
 from .fx import make_fx
+from .models import Transaction
 from .parser import parse_csv, parse_assets_csv, parse_markdown_dir, parse_single_md
 from .accounting import compute_income_statement, compute_balance_sheet, compute_cash_flow
 from .market import fetch_market_anchors
@@ -52,19 +53,19 @@ def _atomic_write(path, content):
 
 def _save_snapshot(bs, period, output_dir):
     """Save asset snapshot JSON for track mode."""
-    eq = bs["risk_buckets"].get("equities", 0)
-    non_investable = bs["risk_buckets"].get("real_estate", 0) + bs["risk_buckets"].get("insurance", 0)
-    total_investable = bs["total_assets"] - non_investable
+    eq = bs.risk_buckets.get("equities", 0)
+    non_investable = bs.risk_buckets.get("real_estate", 0) + bs.risk_buckets.get("insurance", 0)
+    total_investable = bs.total_assets - non_investable
     equity_ratio = eq / total_investable if total_investable > 0 else 0
 
     snapshot = {
         "period": period,
-        "net_worth": round(bs["net_worth"], 2),
-        "total_assets": round(bs["total_assets"], 2),
-        "total_liabilities": round(bs["total_liabilities"], 2),
-        "total_cash": round(bs["total_cash"], 2),
+        "net_worth": round(bs.net_worth, 2),
+        "total_assets": round(bs.total_assets, 2),
+        "total_liabilities": round(bs.total_liabilities, 2),
+        "total_cash": round(bs.total_cash, 2),
         "equity_ratio": round(equity_ratio, 4),
-        "risk_buckets": {k: round(v, 2) for k, v in bs["risk_buckets"].items()},
+        "risk_buckets": {k: round(v, 2) for k, v in bs.risk_buckets.items()},
     }
 
     snap_dir = Path(output_dir) / "snapshots"
@@ -118,11 +119,13 @@ def cmd_cfo(args):
 
     # Warn about potential CC double-counting
     cc_double_warn = None
-    cc_accounts = {t["account"] for t in all_tx if "信用卡" in t.get("account", "") or "credit" in t.get("account", "").lower()}
+    cc_accounts = {t.account for t in all_tx
+                   if isinstance(t, Transaction) and ("信用卡" in t.account or "credit" in t.account.lower())}
     if cc_accounts:
-        card_payment_tx = [t for t in all_tx if t["account"] not in cc_accounts and "卡費" in t.get("description", "")]
+        card_payment_tx = [t for t in all_tx
+                          if isinstance(t, Transaction) and t.account not in cc_accounts and "卡費" in t.description]
         if card_payment_tx:
-            cc_count = sum(len([t for t in all_tx if t["account"] == a]) for a in cc_accounts)
+            cc_count = sum(len([t for t in all_tx if isinstance(t, Transaction) and t.account == a]) for a in cc_accounts)
             cc_double_warn = (f"偵測到 {len(card_payment_tx)} 筆銀行端卡費扣款 + "
                               f"{cc_count} 筆信用卡消費明細。"
                               f"若兩邊都匯入，請在 category_rules 中將卡費標為 internal_transfer，"
@@ -135,14 +138,14 @@ def cmd_cfo(args):
         raw = ae["amount"]
         # Positive amount = expense (negate it); negative = income (keep sign)
         monthly_amt = (-abs(raw) if raw > 0 else abs(raw)) / 12
-        all_tx.append({
-            "date": "",
-            "description": ae.get("name", "年度費用"),
-            "amount": monthly_amt,
-            "currency": ae.get("currency", "TWD"),
-            "category": ae.get("category", ""),
-            "account": "config (年度分攤)",
-        })
+        all_tx.append(Transaction(
+            date="",
+            description=ae.get("name", "年度費用"),
+            amount=monthly_amt,
+            currency=ae.get("currency", "TWD"),
+            category=ae.get("category", ""),
+            account="config (年度分攤)",
+        ))
     if annual_expenses:
         print(f"  Injected {len(annual_expenses)} annual expenses (prorated monthly)")
 
@@ -164,10 +167,10 @@ def cmd_cfo(args):
 
     # Glide path diagnosis
     glide = None
-    if bs and bs["total_assets"] > 0:
-        eq = bs["risk_buckets"].get("equities", 0)
-        non_investable = bs["risk_buckets"].get("real_estate", 0) + bs["risk_buckets"].get("insurance", 0)
-        total_investable = bs["total_assets"] - non_investable
+    if bs and bs.total_assets > 0:
+        eq = bs.risk_buckets.get("equities", 0)
+        non_investable = bs.risk_buckets.get("real_estate", 0) + bs.risk_buckets.get("insurance", 0)
+        total_investable = bs.total_assets - non_investable
         equity_ratio = eq / total_investable if total_investable > 0 else 0
         if not (0 <= equity_ratio <= 1.0):
             print(f"  WARNING: equity_ratio={equity_ratio:.2%} is outside [0, 100%]. "

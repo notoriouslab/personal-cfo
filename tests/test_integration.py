@@ -46,24 +46,24 @@ class TestFullPipelineCSV:
     def test_balance_sheet(self, assets, cfg):
         to_twd = make_fx(cfg["fx_rates"])
         bs = compute_balance_sheet(assets, cfg["manual_assets"], to_twd)
-        assert bs["total_assets"] > 0
-        assert bs["net_worth"] != 0
+        assert bs.total_assets > 0
+        assert bs.net_worth != 0
 
     def test_cash_flow(self, transactions, cfg):
         to_twd = make_fx(cfg["fx_rates"])
         buckets, _ = compute_income_statement(transactions, to_twd)
         cf = compute_cash_flow(buckets)
-        assert cf["inflow"] > 0
-        assert cf["outflow"] < 0
+        assert cf.inflow > 0
+        assert cf.outflow < 0
 
     def test_glide_path(self, assets, cfg):
         to_twd = make_fx(cfg["fx_rates"])
         bs = compute_balance_sheet(assets, cfg["manual_assets"], to_twd)
-        total = bs["total_assets"]
-        equities = bs["risk_buckets"]["equities"]
+        total = bs.total_assets
+        equities = bs.risk_buckets["equities"]
         actual_ratio = equities / total if total > 0 else 0
         result = diagnose_drift(actual_ratio, cfg)
-        assert result["status"] in ("on_track", "minor_drift", "major_drift")
+        assert result.status in ("on_track", "minor_drift", "major_drift")
 
 
 class TestFullPipelineMarkdown:
@@ -120,7 +120,7 @@ class TestBankStatement:
         tx, _ = parsed
         to_twd = make_fx(cfg["fx_rates"])
         _, classified = compute_income_statement(tx, to_twd)
-        descs = [t["description"] for t in classified]
+        descs = [t.description for t in classified]
         # 永豐卡費 should be excluded (card payment)
         assert not any("卡費" in d for d in descs)
         # 自行轉帳 should be excluded
@@ -146,7 +146,7 @@ class TestCreditCardStatement:
     def test_amounts_sign_flipped(self, parsed):
         """Credit card amounts should be negative (expenses)."""
         tx, _ = parsed
-        expenses = [t for t in tx if t["amount"] < 0]
+        expenses = [t for t in tx if t.amount < 0]
         # Most items should be negative (expenses), some may be credits
         assert len(expenses) >= 20
 
@@ -155,7 +155,7 @@ class TestCreditCardStatement:
         tx, _ = parsed
         to_twd = make_fx(cfg["fx_rates"])
         _, classified = compute_income_statement(tx, to_twd)
-        descs = [t["description"] for t in classified]
+        descs = [t.description for t in classified]
         assert not any("自扣已入帳" in d for d in descs)
 
     def test_cashback_excluded(self, parsed, cfg):
@@ -163,7 +163,7 @@ class TestCreditCardStatement:
         tx, _ = parsed
         to_twd = make_fx(cfg["fx_rates"])
         _, classified = compute_income_statement(tx, to_twd)
-        descs = [t["description"] for t in classified]
+        descs = [t.description for t in classified]
         assert not any("回饋入帳" in d for d in descs)
 
 
@@ -185,24 +185,24 @@ class TestSecuritiesStatement:
     def test_all_equities(self, parsed):
         _, assets = parsed
         for a in assets:
-            assert a["category"] == "Equity"
+            assert a.category == "Equity"
 
     def test_known_holdings(self, parsed):
         _, assets = parsed
-        names = {a["name"] for a in assets}
+        names = {a.name for a in assets}
         assert "0050 元大台灣50" in names
         assert "2330 台積電" in names
 
     def test_subtotal_excluded(self, parsed):
         """小計 row should not appear as an asset."""
         _, assets = parsed
-        names = {a["name"] for a in assets}
+        names = {a.name for a in assets}
         assert "小計" not in names
 
     def test_market_values_correct(self, parsed):
         _, assets = parsed
-        tsmc = [a for a in assets if "2330" in a["name"]][0]
-        assert tsmc["amount"] == 190000  # 200 shares × 950
+        tsmc = [a for a in assets if "2330" in a.name][0]
+        assert tsmc.amount == 190000  # 200 shares × 950
 
 
 class TestCombinedPipeline:
@@ -238,23 +238,23 @@ class TestCombinedPipeline:
         buckets, _ = compute_income_statement(tx, to_twd)
         cf = compute_cash_flow(buckets)
         # Dual-income family should have positive cash flow
-        assert cf["net_flow"] > 0
+        assert cf.net_flow > 0
 
     def test_balance_sheet_with_manual(self, all_data, cfg):
         _, assets = all_data
         to_twd = make_fx(cfg["fx_rates"])
         bs = compute_balance_sheet(assets, cfg["manual_assets"], to_twd)
         # Should have real estate from manual_assets
-        assert bs["risk_buckets"]["real_estate"] == 25000000
+        assert bs.risk_buckets["real_estate"] == 25000000
         # Should have equities from securities
-        assert bs["risk_buckets"]["equities"] > 600000
+        assert bs.risk_buckets["equities"] > 600000
 
     def test_savings_rate(self, all_data, cfg):
         tx, _ = all_data
         to_twd = make_fx(cfg["fx_rates"])
         buckets, _ = compute_income_statement(tx, to_twd)
         cf = compute_cash_flow(buckets)
-        income = cf["inflow"]
-        savings_rate = cf["net_flow"] / income if income > 0 else 0
+        income = cf.inflow
+        savings_rate = cf.net_flow / income if income > 0 else 0
         # Mid-career family should save 30-60%
         assert 0.3 <= savings_rate <= 0.7

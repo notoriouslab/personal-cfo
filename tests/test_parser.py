@@ -119,13 +119,13 @@ class TestParseCSV:
     def test_applies_category_rules(self, sample_csv):
         rules = {"Salary": "salary", "Grocery": "grocery"}
         tx = parse_csv(sample_csv, category_rules=rules)
-        salary_tx = [t for t in tx if t["category"] == "salary"]
+        salary_tx = [t for t in tx if t.category == "salary"]
         assert len(salary_tx) >= 1
 
     def test_preserves_user_category(self, sample_csv):
         """Existing category in CSV should be used when no rule matches."""
         tx = parse_csv(sample_csv)
-        housing = [t for t in tx if t["category"] == "housing"]
+        housing = [t for t in tx if t.category == "housing"]
         assert len(housing) == 1
 
     def test_zero_amount_skipped(self, tmp_path):
@@ -142,7 +142,7 @@ class TestParseAssetsCSV:
         path = Path(__file__).parent.parent / "examples" / "sample_assets.csv"
         assets = parse_assets_csv(path)
         assert len(assets) == 7
-        cash = [a for a in assets if a["category"] == "Cash"]
+        cash = [a for a in assets if a.category == "Cash"]
         assert len(cash) == 3
 
 
@@ -160,10 +160,10 @@ class TestParseTablesFromMarkdown:
         tx = _parse_tables_from_markdown(md, vendor="test")
         assert len(tx) == 2
         salary = tx[0]
-        assert salary["amount"] == 150000
-        assert salary["date"] == "2026-01-05"
+        assert salary.amount == 150000
+        assert salary.date == "2026-01-05"
         mortgage = tx[1]
-        assert mortgage["amount"] == -25000
+        assert mortgage.amount == -25000
 
     def test_single_amount_column(self):
         """Credit card with single 金額 column."""
@@ -175,7 +175,7 @@ class TestParseTablesFromMarkdown:
 """
         tx = _parse_tables_from_markdown(md, is_cc=True, vendor="cc")
         assert len(tx) == 2
-        assert tx[0]["amount"] == -1200  # CC sign flip
+        assert tx[0].amount == -1200  # CC sign flip
 
     def test_debit_credit_priority_over_amount(self):
         """Bug fix: when both 支出/存入 AND 金額 columns exist,
@@ -188,11 +188,8 @@ class TestParseTablesFromMarkdown:
 """
         tx = _parse_tables_from_markdown(md, vendor="test")
         assert len(tx) == 2
-        # Both "支出金額" and "存入金額" contain "金額"
-        # If amount_col takes priority, it would grab "支出金額" for all rows
-        # The fix ensures debit/credit columns are used instead
-        assert tx[0]["amount"] == 150000  # salary is credit
-        assert tx[1]["amount"] == -30000  # rent is debit
+        assert tx[0].amount == 150000  # salary is credit
+        assert tx[1].amount == -30000  # rent is debit
 
     def test_remarks_column_merged(self):
         """Bug fix: remarks column content should be merged into description."""
@@ -205,9 +202,8 @@ class TestParseTablesFromMarkdown:
         tx = _parse_tables_from_markdown(md, vendor="test",
                                          category_rules=rules)
         assert len(tx) == 1
-        # Without remarks merge, category would be empty
-        assert tx[0]["category"] == "salary"
-        assert "轉出123456薪轉" in tx[0]["description"]
+        assert tx[0].category == "salary"
+        assert "轉出123456薪轉" in tx[0].description
 
     def test_remarks_not_duplicated(self):
         """Don't append remark if it's already in description."""
@@ -217,7 +213,7 @@ class TestParseTablesFromMarkdown:
 | 2026/01/05 | 薪資入帳 | | 150,000 | 薪資入帳 |
 """
         tx = _parse_tables_from_markdown(md, vendor="test")
-        assert tx[0]["description"] == "薪資入帳"  # not duplicated
+        assert tx[0].description == "薪資入帳"  # not duplicated
 
     def test_bold_dates_skipped(self):
         """Summary rows with bold dates should be skipped."""
@@ -237,7 +233,7 @@ class TestParseTablesFromMarkdown:
 | 2026/01/05 | FX interest | 100 | 美元 |
 """
         tx = _parse_tables_from_markdown(md, vendor="test")
-        assert tx[0]["currency"] == "USD"
+        assert tx[0].currency == "USD"
 
 
 # ---------- parse_single_md: STRUCTURED_DATA ----------
@@ -269,8 +265,8 @@ STRUCTURED_DATA_END -->
         tx, assets = parse_single_md(p)
         assert len(tx) == 2
         assert len(assets) == 1
-        assert tx[0]["amount"] == 150000
-        assert tx[0]["account"] == "TestBank"
+        assert tx[0].amount == 150000
+        assert tx[0].account == "TestBank"
 
     def test_credit_card_sign_flip(self, tmp_path):
         content = """\
@@ -286,7 +282,7 @@ STRUCTURED_DATA_END -->
 """
         p = self._write_md(tmp_path, "test_信用卡.md", content)
         tx, _ = parse_single_md(p)
-        assert tx[0]["amount"] == -1200  # sign flipped for CC
+        assert tx[0].amount == -1200  # sign flipped for CC
 
     def test_plain_markdown_no_json(self, tmp_path):
         content = """\
@@ -319,7 +315,7 @@ STRUCTURED_DATA_END -->
         tx, _ = parse_single_md(p)
         # Should have 2: the original + supplemented from pipe table
         assert len(tx) == 2
-        descs = {t["description"] for t in tx}
+        descs = {t.description for t in tx}
         assert "Salary" in descs
         assert "Rent" in descs
 
@@ -341,7 +337,7 @@ STRUCTURED_DATA_END -->
         p = self._write_md(tmp_path, "test_bank.md", content)
         tx, _ = parse_single_md(p, category_rules=rules)
         # The enriched description should allow the rule to match
-        assert tx[0]["category"] == "salary"
+        assert tx[0].category == "salary"
 
     def test_fallback_when_json_empty(self, tmp_path):
         """When JSON has refined_markdown but no transactions, fall back to pipe tables."""
@@ -377,7 +373,7 @@ STRUCTURED_DATA_END -->
 """
         p = self._write_md(tmp_path, "broker.md", content)
         tx, _ = parse_single_md(p)
-        assert tx[0]["currency"] == "USD"
+        assert tx[0].currency == "USD"
 
 
 # ---------- parse_csv edge cases ----------
@@ -391,8 +387,8 @@ class TestParseCSVEdgeCases:
         )
         tx = parse_csv(csv_file)
         assert len(tx) == 1
-        assert tx[0]["currency"] == "TWD"  # default
-        assert tx[0]["category"] == ""  # no rules
+        assert tx[0].currency == "TWD"  # default
+        assert tx[0].category == ""  # no rules
 
     def test_big5_encoding(self, tmp_path):
         csv_file = tmp_path / "big5.csv"
@@ -402,4 +398,4 @@ class TestParseCSVEdgeCases:
         )
         tx = parse_csv(csv_file)
         assert len(tx) == 1
-        assert tx[0]["description"] == "薪資"
+        assert tx[0].description == "薪資"

@@ -4,6 +4,7 @@ from .accounting import (
     IS_SALARY, IS_INVEST_INCOME, IS_CAPITAL, IS_LIVING,
     IS_CAPEX, IS_PRINCIPAL, IS_INTEREST, IS_FEES,
 )
+from .models import BalanceSheet, CashFlow, ClassifiedTx, GlideDiagnosis
 
 # Confidence markers for data sources
 C_HARD = "🔵"   # hard data — from bank statements
@@ -50,21 +51,21 @@ def _savings_rate(is_buckets):
 
 def _render_bucket_detail(classified_tx, bucket, max_items=10):
     """Render transaction detail lines for a single IS bucket."""
-    items = [t for t in classified_tx if t["bucket"] == bucket]
+    items = [t for t in classified_tx if t.bucket == bucket]
     if not items:
         return []
 
     lines = []
     # Sort by absolute amount descending
-    items.sort(key=lambda t: abs(t["amount_twd"]), reverse=True)
+    items.sort(key=lambda t: abs(t.amount_twd), reverse=True)
     shown = items[:max_items]
 
     for t in shown:
-        desc = t["description"][:30]
-        amt = _fmt(t["amount_twd"])
-        cur = t["currency"]
+        desc = t.description[:30]
+        amt = _fmt(t.amount_twd)
+        cur = t.currency
         # Only show currency note if foreign AND not already in description
-        if cur != "TWD" and f"({cur})" not in t["description"]:
+        if cur != "TWD" and f"({cur})" not in t.description:
             cur_note = f" ({cur})"
         else:
             cur_note = ""
@@ -72,7 +73,7 @@ def _render_bucket_detail(classified_tx, bucket, max_items=10):
 
     if len(items) > max_items:
         rest_count = len(items) - max_items
-        rest_total = sum(t["amount_twd"] for t in items[max_items:])
+        rest_total = sum(t.amount_twd for t in items[max_items:])
         lines.append(f"|   ↳ ...其他 {rest_count} 筆 | {_fmt(rest_total)} | |")
 
     return lines
@@ -90,14 +91,14 @@ def render_cfo_report(period, is_buckets, bs, cash_flow, market, glide, cfg,
     cap_net = sum(is_buckets.get(b, 0) for b in _CAP_BUCKETS)
 
     # --- Executive Summary ---
-    nw_str = f"NT${_fmt(bs['net_worth'])}" if bs else "—"
+    nw_str = f"NT${_fmt(bs.net_worth)}" if bs else "—"
     sr = _savings_rate(is_buckets)
     sr_str = _pct(sr) if sr != 0 else "N/A"
     glide_str = ""
     if glide:
-        icon = {"on_track": "🟢", "minor_drift": "🟡", "major_drift": "🔴"}.get(glide["status"], "⚪")
+        icon = {"on_track": "🟢", "minor_drift": "🟡", "major_drift": "🔴"}.get(glide.status, "⚪")
         _status_zh = {"on_track": "正常", "minor_drift": "輕微偏移", "major_drift": "重大偏移"}
-        glide_str = f" | 退休軌道 {icon} {_status_zh.get(glide['status'], glide['status'])}"
+        glide_str = f" | 退休軌道 {icon} {_status_zh.get(glide.status, glide.status)}"
 
     lines = [f"# 財務報告 — {period}\n"]
     lines.append(f"> 經常性淨利 **NT${_fmt(op_net)}** | "
@@ -149,12 +150,12 @@ def render_cfo_report(period, is_buckets, bs, cash_flow, market, glide, cfg,
         lines.append("")
 
     # --- Balance Sheet ---
-    if bs and bs["total_assets"] > 0:
+    if bs and bs.total_assets > 0:
         lines.append("## 資產負債表\n")
         lines.append(f"| 項目 | 金額 ({base}) | |")
         lines.append("|------|----------:|:--:|")
 
-        rb = bs["risk_buckets"]
+        rb = bs.risk_buckets
         group_conf = {
             "liquid_cash":  ("流動資產 (Cash)",              C_HARD),
             "equities":     ("股票/ETF (Equities)",          C_EST),
@@ -163,7 +164,7 @@ def render_cfo_report(period, is_buckets, bs, cash_flow, market, glide, cfg,
             "insurance":    ("保險價值 (Insurance)",           C_ASSU),
             "other":        ("其他 (Other)",                  C_ASSU),
         }
-        details = bs.get("details", [])
+        details = bs.details
         for group, (label, conf) in group_conf.items():
             val = rb.get(group, 0)
             if val != 0:
@@ -179,22 +180,22 @@ def render_cfo_report(period, is_buckets, bs, cash_flow, market, glide, cfg,
                     rest = sum(d["amount_twd"] for d in group_items[8:])
                     lines.append(f"|   ↳ ...其他 {len(group_items)-8} 項 | {_fmt(rest)} | |")
 
-        lines.append(f"| **資產合計** | **{_fmt(bs['total_assets'])}** | |")
+        lines.append(f"| **資產合計** | **{_fmt(bs.total_assets)}** | |")
 
-        if bs["total_liabilities"] > 0:
+        if bs.total_liabilities > 0:
             liab_items = [d for d in details if d["group"] == "liabilities"]
-            lines.append(f"| 負債 | -{_fmt(bs['total_liabilities'])} | {C_HARD} |")
+            lines.append(f"| 負債 | -{_fmt(bs.total_liabilities)} | {C_HARD} |")
             for d in liab_items:
                 name = d["name"][:30]
                 lines.append(f"|   ↳ {name} | -{_fmt(abs(d['amount_twd']))} | |")
 
-        lines.append(f"| **淨資產** | **{_fmt(bs['net_worth'])}** | |")
+        lines.append(f"| **淨資產** | **{_fmt(bs.net_worth)}** | |")
         lines.append("")
 
         # Key ratios
-        liability_ratio = bs["total_liabilities"] / bs["total_assets"] if bs["total_assets"] else 0
+        liability_ratio = bs.total_liabilities / bs.total_assets if bs.total_assets else 0
         monthly_exp = cfg["assumptions"].get("monthly_expense", 100000)
-        emergency_months = bs["total_cash"] / monthly_exp if monthly_exp else 0
+        emergency_months = bs.total_cash / monthly_exp if monthly_exp else 0
 
         lines.append("### 關鍵指標\n")
         lines.append(f"| 指標 | 數值 | |")
@@ -211,9 +212,9 @@ def render_cfo_report(period, is_buckets, bs, cash_flow, market, glide, cfg,
     lines.append("## 現金流量\n")
     lines.append(f"| | 金額 ({base}) | |")
     lines.append("|--|----------:|:--:|")
-    lines.append(f"| 流入 | {_fmt(cash_flow['inflow'])} | {C_HARD} |")
-    lines.append(f"| 流出 | {_fmt(cash_flow['outflow'])} | {C_HARD} |")
-    lines.append(f"| **淨流量** | **{_fmt(cash_flow['net_flow'])}** | |")
+    lines.append(f"| 流入 | {_fmt(cash_flow.inflow)} | {C_HARD} |")
+    lines.append(f"| 流出 | {_fmt(cash_flow.outflow)} | {C_HARD} |")
+    lines.append(f"| **淨流量** | **{_fmt(cash_flow.net_flow)}** | |")
     lines.append("")
 
     # --- Market Anchors ---
@@ -239,17 +240,17 @@ def render_cfo_report(period, is_buckets, bs, cash_flow, market, glide, cfg,
 
     # --- Glide Path ---
     if glide:
-        status_icon = {"on_track": "🟢", "minor_drift": "🟡", "major_drift": "🔴"}.get(glide["status"], "⚪")
+        status_icon = {"on_track": "🟢", "minor_drift": "🟡", "major_drift": "🔴"}.get(glide.status, "⚪")
         _status_zh = {"on_track": "正常", "minor_drift": "輕微偏移", "major_drift": "重大偏移"}
         lines.append("## 退休軌道\n")
         lines.append(f"| 指標 | 數值 |")
         lines.append(f"|------|------:|")
-        lines.append(f"| 年齡 | {glide['age']} |")
-        lines.append(f"| 目標股票比 | {_pct(glide['target'])} |")
-        lines.append(f"| 實際股票比 | {_pct(glide['actual'])} |")
-        lines.append(f"| 偏移 | {glide['drift']:+.1%} |")
-        lines.append(f"| 狀態 | {status_icon} **{_status_zh.get(glide['status'], glide['status'])}** |")
-        lines.append(f"\n> {glide['message']}")
+        lines.append(f"| 年齡 | {glide.age} |")
+        lines.append(f"| 目標股票比 | {_pct(glide.target)} |")
+        lines.append(f"| 實際股票比 | {_pct(glide.actual)} |")
+        lines.append(f"| 偏移 | {glide.drift:+.1%} |")
+        lines.append(f"| 狀態 | {status_icon} **{_status_zh.get(glide.status, glide.status)}** |")
+        lines.append(f"\n> {glide.message}")
         lines.append("")
 
     # --- Warnings ---
@@ -271,20 +272,20 @@ def render_track_report(snapshots, glide, cfg):
 
     Args:
         snapshots: list of snapshot dicts (sorted by period)
-        glide: dict from diagnose_drift
+        glide: GlideDiagnosis from diagnose_drift
         cfg: config dict
     """
     lines = ["# Track Audit — Retirement Glide Path\n"]
 
     # Current diagnosis
     if glide:
-        status_icon = {"on_track": "🟢", "minor_drift": "🟡", "major_drift": "🔴"}.get(glide["status"], "⚪")
+        status_icon = {"on_track": "🟢", "minor_drift": "🟡", "major_drift": "🔴"}.get(glide.status, "⚪")
         lines.append("## Current Diagnosis\n")
-        lines.append(f"- Age: {glide['age']}")
-        lines.append(f"- Target Equity: {_pct(glide['target'])}")
-        lines.append(f"- Actual Equity: {_pct(glide['actual'])}")
-        lines.append(f"- Drift: {glide['drift']:+.1%} → {status_icon} **{glide['status'].upper()}**")
-        lines.append(f"- {glide['message']}")
+        lines.append(f"- Age: {glide.age}")
+        lines.append(f"- Target Equity: {_pct(glide.target)}")
+        lines.append(f"- Actual Equity: {_pct(glide.actual)}")
+        lines.append(f"- Drift: {glide.drift:+.1%} → {status_icon} **{glide.status.upper()}**")
+        lines.append(f"- {glide.message}")
         lines.append("")
 
     # Trend table
@@ -295,7 +296,13 @@ def render_track_report(snapshots, glide, cfg):
         for s in snapshots[-6:]:  # last 6 periods
             nw = _fmt(s.get("net_worth", 0))
             er = _pct(s.get("equity_ratio", 0))
-            st = s.get("glide_path", {}).get("status", "—")
+            gp = s.get("glide_path")
+            if isinstance(gp, GlideDiagnosis):
+                st = gp.status
+            elif isinstance(gp, dict):
+                st = gp.get("status", "—")
+            else:
+                st = "—"
             lines.append(f"| {s['period']} | {nw} | {er} | {st} |")
         lines.append("")
 
@@ -307,7 +314,7 @@ def render_track_report(snapshots, glide, cfg):
         lines.append("| Age | Target Equity |")
         lines.append("|----:|--------------:|")
         for age, target in table:
-            marker = " ← now" if age == glide["age"] else ""
+            marker = " ← now" if age == glide.age else ""
             lines.append(f"| {age} | {_pct(target)}{marker} |")
         lines.append("")
 
