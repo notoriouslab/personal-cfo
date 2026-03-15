@@ -1,0 +1,16 @@
+{
+  "period": "unknown",
+  "net_worth": 20795450.0,
+  "total_assets": 25645450.0,
+  "total_liabilities": 4850000.0,
+  "total_cash": 35200.0,
+  "equity_ratio": 0.9455,
+  "risk_buckets": {
+    "liquid_cash": 35200.0,
+    "equities": 610250.0,
+    "bonds": 0.0,
+    "real_estate": 25000000.0,
+    "insurance": 0.0,
+    "other": 0.0
+  }
+}

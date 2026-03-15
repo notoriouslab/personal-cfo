@@ -1,6 +1,9 @@
 """Retirement glide path — age-aware equity target and drift diagnosis."""
 
+import sys
 from datetime import datetime
+
+_baseline_warned = False
 
 
 def get_age(birth_year):
@@ -34,12 +37,13 @@ def diagnose_drift(actual_equity_ratio, cfg):
 
     Returns dict with target, actual, drift, status, message.
     """
+    global _baseline_warned
     gp = cfg["glide_path"]
-    if "baseline_year" not in gp:
-        import sys
+    if "baseline_year" not in gp and not _baseline_warned:
         print("  NOTE: glide_path.baseline_year not set. "
               "Target will stay at equity_target until you set it.",
               file=sys.stderr)
+        _baseline_warned = True
     age = get_age(cfg["life_plan"]["birth_year"])
     target = target_equity_ratio(age, cfg)
 

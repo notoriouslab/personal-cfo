@@ -2,27 +2,46 @@
 
 > [繁體中文 README](README.md)
 
-CLI-first retirement glide path financial analyzer — bank statements in, financial reports out, your data stays local.
+**Reference implementation** — how a non-professional investor can monitor their retirement glide path with deterministic computation.
+
+Bank statements in, financial reports out, your data stays local. Fork it and adapt `config.yaml` to your situation.
+
+**Requires Python 3.9+** · Part of the notoriouslab open-source toolkit.
 
 Any AI agent framework can call it via shell. Includes `SKILL.md` for direct [OpenClaw](https://openclaw.ai/) integration.
 
-## What It Does
+## What This Is NOT
 
-Turns your monthly bank statements into:
+- Not a trading tool — it won't tell you to buy or sell
+- Not a SaaS — no database, no account needed
+- Not plug-and-play — you need CLI skills and must configure your own classification rules
+
+## What This IS
+
+A **framework and template** for monthly financial checkups. It demonstrates a methodology:
+
+| Feature | Description |
+|---------|-------------|
+| Post-hoc audit | Uses last month's bank statements, 100% objective, no forecasting |
+| Deterministic computation | Python calculates the numbers, zero hallucination, no AI guessing |
+| Retirement glide path | Automatically reduces equity target with age, alerts only on drift |
+| Anti-noise | Stays silent when on track, doesn't manufacture anxiety |
+| Multi-format input | CSV, doc-cleaner Markdown+JSON, hand-written pipe tables |
+| Multi-currency | Static FX rates via config, supports USD/JPY/CNY/AUD etc. |
+| Atomic writes | tempfile + `os.replace()`, no half-written output |
+| Offline mode | `--offline` skips network, uses cached/hardcoded market data |
+
+Everyone's financial situation is different. This tool gives you a starting point and a thinking framework — you can (and should) modify the classification rules, asset allocation, and retirement parameters to fit your own needs.
+
+## What It Produces
+
 - **Income Statement** (8-category P&L)
 - **Balance Sheet** (assets vs liabilities by risk bucket)
 - **Cash Flow Summary** (operating inflow/outflow)
 - **Market Anchors** (global indicators for context)
 - **Retirement Glide Path Diagnosis** (are you on track?)
 
-## Philosophy
-
-> Most people don't have the discipline for financial planning. They make decisions based on news and social media.
-> personal-cfo is not a trading tool. It's a monthly financial checkup that runs itself.
-
-- **Post-hoc audit** — uses bank statements with a 1-month delay, 100% objective
-- **Deterministic computation** — Python calculates the numbers, zero hallucination
-- **Anti-noise** — only alerts you when your retirement track drifts, stays silent when on track
+See `examples/sample_output/` for a complete report example.
 
 ## Pipeline
 
@@ -42,6 +61,9 @@ gmail-statement-fetcher  →  doc-cleaner  →  personal-cfo
 ## Quick Start
 
 ```bash
+git clone https://github.com/notoriouslab/personal-cfo.git
+cd personal-cfo
+
 # Install core dependency (pyyaml only)
 pip install -r requirements.txt
 
@@ -51,10 +73,11 @@ pip install -r requirements-full.txt
 # Copy and edit config
 cp config.example.yaml config.yaml
 
-# Monthly audit (CSV input)
+# Try with sample data
 python -m personal_cfo cfo \
-  --transactions ./data/jan.csv \
-  --period 2026-01
+  --transactions ./examples/sample_transactions.csv \
+  --assets ./examples/sample_assets.csv \
+  --period 2026-01 --offline
 
 # Monthly audit (doc-cleaner Markdown output)
 python -m personal_cfo cfo \
@@ -62,29 +85,13 @@ python -m personal_cfo cfo \
   --period 2026-01 \
   --offline
 
+# Monthly audit (plain Markdown with pipe tables)
+python -m personal_cfo cfo \
+  --transactions ./my_statement.md \
+  --period 2026-01 --offline
+
 # Retirement track check (from saved snapshots)
 python -m personal_cfo track --snapshots ./output/snapshots/
-```
-
-## Sample Output
-
-```
-## Income Statement
-
-| Category | Amount (TWD) |
-|----------|----------:|
-| Salary/Income | 150,000 |
-| Dividend/Interest | 6,284 |
-| Living/Other | -85,000 |
-| Interest | -25,000 |
-| **Net Operating** | **46,284** |
-
-## Retirement Glide Path
-
-- Target Equity Ratio: 20.0%
-- Actual Equity Ratio: 16.3%
-- Drift: -3.7%
-- Status: MINOR_DRIFT
 ```
 
 ## Input Formats
@@ -99,7 +106,10 @@ date,description,amount,currency,category,account
 ### Markdown + JSON (from doc-cleaner pipeline)
 Reads `STRUCTURED_DATA` JSON blocks embedded in Markdown files. Credit card files (filename contains `credit`) are automatically sign-flipped.
 
-**Fallback mode:** When the JSON contains `refined_markdown` but no `transactions[]` array, the parser automatically extracts transactions from pipe tables in the markdown. This means doc-cleaner output works directly — no extra processing step needed. Supports both single-amount tables (credit cards) and split debit/credit columns (bank statements).
+**Cross-reference mode:** Even when JSON has `transactions[]`, the parser cross-checks against pipe tables in `refined_markdown` to supplement missing transactions and enrich descriptions from remarks columns.
+
+### Plain Markdown (hand-written or from any source)
+Any `.md` file with pipe tables will work — no special format required. The parser detects transaction tables by column headers (date, description, amount). See `examples/sample_statement.md`.
 
 ## Configuration
 
@@ -111,6 +121,7 @@ See `config.example.yaml` for all options:
 | `glide_path` | Equity target, annual derisking rate, drift thresholds |
 | `manual_assets` | Assets not in bank statements (real estate, etc.) |
 | `category_rules` | Keyword → category mapping (**order matters**, specific first) |
+| `annual_expenses` | Annual expenses (insurance, tax), auto-prorated to monthly |
 | `fx_rates` | Static exchange rates (format: `USD_TWD: 32.0`) |
 
 ## CLI Options
@@ -130,9 +141,46 @@ python -m personal_cfo track --help
 | `--offline` | Skip network calls (use cached/hardcoded market data) |
 | `--quiet`, `-q` | Only save files, no stdout |
 
+## Usage Scenarios
+
+The `examples/` directory includes config templates for different life stages and complete sample statements:
+
+**Config templates:**
+
+| Template | Scenario | Focus |
+|----------|----------|-------|
+| `config_young_professional.yaml` | 30-year-old single professional | High equity, wide tolerance, simple rules |
+| `config_mid_career_family.yaml` | 42-year-old dual-income family | Mortgage, insurance, education expenses |
+| `config_pre_retirement.yaml` | 56-year-old pre-retirement | Defensive allocation, detailed rules, multi-currency |
+
+**Sample statements (fictional middle-class family):**
+
+| File | Type | Contents |
+|------|------|----------|
+| `sample_bank_statement.md` | Bank statement | Payroll, mortgage, deposits, FX |
+| `sample_credit_card.md` | Credit card bill | Daily spending, supplementary cards, cashback |
+| `sample_securities.md` | Brokerage statement | ETF/stock holdings, trade details |
+| `sample_output/` | Generated report | Full analysis of the above three statements |
+
+These are not "best configs" — they help you understand why each parameter exists, so you can write your own.
+
 ## Security
 
-See [SECURITY.md](SECURITY.md).
+- No cloud required: all computation runs locally, no data uploaded
+- Atomic writes: tempfile + `os.replace()`, no half-written output
+- Secret isolation: `config.yaml` is in `.gitignore`, never committed
+- Market data degradation: yfinance → cache → hardcoded fallback (with warning)
+
+## AI Agent Integration
+
+```bash
+python -m personal_cfo cfo \
+  --transactions ./statements/ \
+  --period 2026-02 \
+  --offline --quiet
+```
+
+Includes `SKILL.md` for [OpenClaw](https://openclaw.ai/) or other AI agent frameworks.
 
 ## Contributing
 

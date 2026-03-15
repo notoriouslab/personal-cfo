@@ -1,0 +1,11 @@
+date,description,amount,currency,category,account
+2026-01-05,Salary,150000,TWD,salary,Bank_A
+2026-01-05,Bonus,30000,TWD,salary,Bank_A
+2026-01-10,Mortgage Payment,-25000,TWD,housing,Bank_B
+2026-01-10,Grocery Store,-3500,TWD,,Bank_A
+2026-01-12,Electricity Bill,-2100,TWD,,Bank_A
+2026-01-15,Restaurant,-1200,TWD,,Bank_A
+2026-01-18,Dividend,6284,TWD,dividend,Broker_A
+2026-01-20,Credit Card Payment,-55000,TWD,internal_transfer,Bank_A
+2026-01-22,Gas Station,-1500,TWD,,Bank_A
+2026-01-25,Insurance Premium,-8000,TWD,insurance,Bank_A

@@ -2,6 +2,7 @@
 
 import json
 import os
+import sys
 import tempfile
 import time
 from pathlib import Path
@@ -14,7 +15,8 @@ TICKERS = {
     "TAIEX": "^TWII",
 }
 
-# Hardcoded fallback values (as of 2026-03-01). Update periodically.
+# Hardcoded fallback values. Update periodically.
+_FALLBACK_DATE = "2026-03-01"
 FALLBACK = {
     "US_10Y_Yield": 4.13,
     "BTC_USD": 67809.0,
@@ -120,4 +122,6 @@ def fetch_market_anchors(offline=False, cache_dir=None):
         return cached
 
     # Tier 3: hardcoded fallback
+    print(f"  WARNING: Using hardcoded market data from {_FALLBACK_DATE}. "
+          f"Values may be outdated.", file=sys.stderr)
     return dict(FALLBACK)

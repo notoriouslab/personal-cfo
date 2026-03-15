@@ -1,0 +1,76 @@
+# 情境：42 歲雙薪家庭 / Scenario: 42-year-old dual-income family
+#
+# 特徵 / Profile:
+# - 有房貸（本金 + 利息自動區分）
+# - 有保險（壽險 + 醫療險年繳，需分攤到月）
+# - 有子女教育支出
+# - 開始關注退休規劃但還沒到防禦階段
+#
+# - Has mortgage (principal vs interest auto-detected)
+# - Has insurance (annual premiums, prorated monthly)
+# - Has children's education expenses
+# - Starting to think about retirement but not yet defensive
+
+life_plan:
+  birth_year: 1984
+  retirement_age: 63
+
+glide_path:
+  equity_target: 0.40           # 42 歲適中配置 / moderate allocation at 42
+  annual_derisking: 0.01
+  min_equity_floor: 0.05
+  drift_tolerance: 0.03
+  drift_warning: 0.05
+  baseline_year: 2026
+
+assumptions:
+  monthly_expense: 120000       # 家庭月支出較高 / higher for family
+  base_currency: TWD
+
+manual_assets:
+  - name: "自用住宅"
+    category: "Real Estate"
+    amount: 25000000
+    currency: TWD
+
+# 年度費用（分攤到每月）/ Annual expenses (prorated monthly)
+annual_expenses:
+  - name: "壽險+醫療險"
+    amount: 180000              # 全家保費 / family insurance premiums
+    category: insurance
+  - name: "綜合所得稅"
+    amount: 80000
+    category: ""                # 歸入生活與其他 / falls into Living/Other
+
+category_rules:
+  # --- 收入（精確的放前面）---
+  "獎金薪資": salary
+  "薪資": salary
+  "salary": salary
+  "payroll": salary
+  # --- 房貸 ---
+  "房貸": housing
+  "繳放款": housing
+  "mortgage": housing
+  # --- 投資收益 ---
+  "股息": dividend
+  "dividend": dividend
+  "配息": dividend
+  "利息": interest_income
+  "匯息": interest_income
+  # --- 保險（這裡指帳單上的保費扣款）---
+  "保險": insurance
+  # --- 教育支出（歸入生活與其他）---
+  # "學費": ""                  # 空字串 = Living/Other，其實不寫也一樣
+  # --- 信託/基金 ---
+  "信託": capital_transfer
+  "贖回": capital_transfer
+  # --- 內部轉帳 ---
+  "自扣已入帳": internal_transfer
+  "回饋入帳": internal_transfer
+  "轉帳": internal_transfer
+  "transfer": internal_transfer
+
+fx_rates:
+  USD_TWD: 32.0
+  JPY_TWD: 0.21

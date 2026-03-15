@@ -16,6 +16,7 @@ _DEFAULTS = {
     "assumptions": {"monthly_expense": 100000, "base_currency": "TWD"},
     "manual_assets": [],
     "category_rules": {},
+    "annual_expenses": [],
     "fx_rates": {"USD_TWD": 32.0, "JPY_TWD": 0.21},
 }
 

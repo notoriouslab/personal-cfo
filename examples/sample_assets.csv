@@ -1,0 +1,8 @@
+account,category,amount,currency
+Bank_A Checking,Cash,1500000,TWD
+Bank_B Savings,Cash,3000000,TWD
+USD Savings,Cash,50000,USD
+ETF - 0050,Equities,800000,TWD
+ETF - VT,Equities,30000,USD
+Structured Bond A,Bonds,100000,USD
+Insurance Policy,Insurance,500000,TWD

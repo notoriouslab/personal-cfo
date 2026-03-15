@@ -6,9 +6,9 @@ _ASSET_GROUP = {
     "Cash": "liquid_cash", "Deposit": "liquid_cash", "Savings": "liquid_cash",
     "Fixed Deposit": "liquid_cash", "liquid_cash": "liquid_cash",
     "Stock": "equities", "ETF": "equities", "Equity": "equities",
-    "Fund": "equities", "equities": "equities",
-    "Bond": "bonds", "Structured Note": "bonds", "Structured Product": "bonds",
-    "Investment": "bonds", "bonds": "bonds",
+    "Equities": "equities", "Fund": "equities", "equities": "equities",
+    "Bond": "bonds", "Bonds": "bonds", "Structured Note": "bonds",
+    "Structured Product": "bonds", "Investment": "bonds", "bonds": "bonds",
     "Insurance": "insurance", "insurance_value": "insurance",
     "Real Estate": "real_estate", "real_estate": "real_estate",
     "Loan": "liabilities", "Mortgage": "liabilities", "Liability": "liabilities",
@@ -31,44 +31,86 @@ _IS_KEYS = [IS_SALARY, IS_INVEST_INCOME, IS_CAPITAL, IS_LIVING,
 
 
 def _classify_tx(desc, cat, amount):
-    """Classify a single transaction into an IS bucket."""
+    """Classify a single transaction into an IS bucket.
+
+    Two-tier design:
+    1. Built-in rules cover common Taiwan bank terminology (no config needed)
+    2. User category_rules (via config) override built-in rules
+    """
     dl = desc.lower()
     cl = cat.lower()
+
+    # --- User overrides (highest priority) ---
+    if cl == "internal_transfer" or "internal_transfer" in cl:
+        return None
+    if cl == "ignore":
+        return None
+
+    # User-assigned categories override all built-in rules
+    if cl in ("salary", "income"):
+        return IS_SALARY
+    if cl in ("dividend", "interest", "interest_income", "rental_income"):
+        return IS_INVEST_INCOME
+    if cl == "capex":
+        return IS_CAPEX
+    if cl == "principal":
+        return IS_PRINCIPAL
+    if cl in ("capital", "capital_transfer"):
+        return IS_CAPITAL
 
     # Fees
     if "手續費" in dl or "fee" in cl:
         return IS_FEES
 
-    # Internal transfer — exclude from IS
-    if cl == "internal_transfer" or "internal_transfer" in cl:
+    # --- Built-in: asset swaps / internal transfers (skip from IS) ---
+    # FX conversion, time deposits, structured products — money stays in your accounts
+    _INTERNAL_KEYWORDS = (
+        "換匯", "開單", "解約", "轉綜活", "轉存單", "轉定存",
+        "自行轉帳", "約定轉帳", "跨轉", "自扣已入帳",
+    )
+    if any(k in dl for k in _INTERNAL_KEYWORDS):
         return None
 
     if amount > 0:
-        # Inflows — conservative: only classify what we're sure about
+        # --- Inflows: description-based fallback ---
+        # (user-override categories already handled above; these rules
+        #  catch transactions with no category but recognizable keywords)
         if cl in ("salary", "income") or "薪" in dl:
             return IS_SALARY
-        if cl in ("dividend", "interest", "interest_income") or "息" in dl or "股利" in dl:
+        if cl in ("dividend", "interest", "interest_income") or "股利" in dl:
             return IS_INVEST_INCOME
-        # Only clearly investment-related keywords → capital transfer
-        if any(k in dl for k in ("交割", "申購", "贖回", "信託")):
+        if "息" in dl and not any(k in dl for k in ("換匯",)):
+            return IS_INVEST_INCOME
+        # Investment-related
+        if any(k in dl for k in ("交割", "申購", "贖回", "信託", "買進", "賣出")):
             return IS_CAPITAL
         if "investment" in cl:
             return IS_CAPITAL
-        # Everything else (including ambiguous transfers) → Living
-        # Users should set category_rules for precise classification
+        # E-wallet refund / withdrawal (not real income)
+        if "街口支付提領" in dl:
+            return None
+        # Inter-account transfers (not real income)
+        if any(k in dl for k in ("手機轉帳", "轉帳", "轉入")):
+            return None
         return IS_LIVING
     else:
-        # Outflows
-        if cl == "housing" or any(k in dl for k in ("房貸", "貸款", "放款", "mortgage")):
-            if "息" in dl or "interest" in cl:
+        # --- Outflows ---
+        if cl in ("housing", "mortgage_interest") or any(
+                k in dl for k in ("房貸", "貸款", "放款", "mortgage")):
+            if cl == "mortgage_interest" or "息" in dl or "interest" in cl:
                 return IS_INTEREST
-            return IS_PRINCIPAL  # principal repayment (not interest)
+            return IS_PRINCIPAL
         if any(k in dl for k in ("裝潢", "修繕")):
             return IS_CAPEX
-        if any(k in dl for k in ("交割", "申購", "買進", "投資", "信託")):
+        if "定期定額" in dl or "定時定額" in dl:
             return IS_CAPEX
-        if "transfer" in cl or "轉帳" in dl or "轉出" in dl:
+        if any(k in dl for k in ("交割", "申購", "買進", "投資", "信託")):
             return IS_CAPITAL
+        # Card payment is internal (bank pays CC bill from deposit)
+        if "卡費" in dl:
+            return None
+        if "transfer" in cl or "轉出" in dl:
+            return None
         if cl in ("insurance",) or "保險" in dl:
             return IS_LIVING
         return IS_LIVING
@@ -77,9 +119,12 @@ def _classify_tx(desc, cat, amount):
 def compute_income_statement(transactions, to_twd):
     """Compute 8-bucket Income Statement from transactions.
 
-    Returns dict of {bucket_name: total_twd}.
+    Returns (buckets, classified_tx) where:
+        buckets: dict of {bucket_name: total_twd}
+        classified_tx: list of dicts with bucket assignment and TWD amount
     """
     buckets = {k: 0.0 for k in _IS_KEYS}
+    classified_tx = []
 
     for t in transactions:
         amt = t["amount"]
@@ -90,8 +135,17 @@ def compute_income_statement(transactions, to_twd):
         if bucket is None:
             continue  # internal_transfer, skip
         buckets[bucket] += amt_twd
+        classified_tx.append({
+            "date": t.get("date", ""),
+            "description": t.get("description", ""),
+            "amount_twd": amt_twd,
+            "currency": currency,
+            "amount_orig": amt,
+            "account": t.get("account", ""),
+            "bucket": bucket,
+        })
 
-    return buckets
+    return buckets, classified_tx
 
 
 def compute_balance_sheet(assets, manual_assets, to_twd):

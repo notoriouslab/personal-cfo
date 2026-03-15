@@ -1,0 +1,42 @@
+# 情境：30 歲單身上班族 / Scenario: 30-year-old single professional
+#
+# 特徵 / Profile:
+# - 穩定薪資收入，無房貸
+# - 風險承受力高，股票比可以放大
+# - 分類規則簡單（交易不複雜）
+#
+# - Stable salary, no mortgage
+# - High risk tolerance, can hold more equities
+# - Simple classification rules (fewer transaction types)
+
+life_plan:
+  birth_year: 1996
+  retirement_age: 60            # 目標提早退休 / aiming for early retirement
+
+glide_path:
+  equity_target: 0.60           # 30 歲可以 60% 股票 / 60% equities at age 30
+  annual_derisking: 0.01        # 每年降 1%：60→59→58...
+  min_equity_floor: 0.10
+  drift_tolerance: 0.05         # 年輕人可以寬容一點 / wider tolerance when young
+  drift_warning: 0.10
+
+assumptions:
+  monthly_expense: 40000
+  base_currency: TWD
+
+manual_assets: []               # 沒有不動產 / no real estate yet
+
+category_rules:
+  "薪資": salary
+  "salary": salary
+  "payroll": salary
+  "股息": dividend
+  "dividend": dividend
+  "配息": dividend
+  "利息": interest_income
+  "保險": insurance
+  "轉帳": internal_transfer
+  "transfer": internal_transfer
+
+fx_rates:
+  USD_TWD: 32.0

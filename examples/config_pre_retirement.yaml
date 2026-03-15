@@ -1,0 +1,87 @@
+# 情境：56 歲接近退休 / Scenario: 56-year-old pre-retirement
+#
+# 特徵 / Profile:
+# - 防禦性配置，股票比已降到 20%
+# - 有多幣別資產（外幣定存、海外基金）
+# - 分類規則詳細（銀行帳單來源多）
+# - 關注現金流穩定性 > 資本增長
+#
+# - Defensive allocation, equity down to 20%
+# - Multi-currency assets (foreign deposits, overseas funds)
+# - Detailed classification rules (multiple bank sources)
+# - Focuses on cash flow stability over capital growth
+
+life_plan:
+  birth_year: 1970
+  retirement_age: 65            # 9 年後退休
+
+glide_path:
+  equity_target: 0.20           # 防禦性：只留 20% 股票 / defensive: only 20% equities
+  annual_derisking: 0.01        # 每年再降 1%：20→19→18...
+  min_equity_floor: 0.05        # 到退休後維持 5% 對抗通膨
+  drift_tolerance: 0.03         # 接近退休，容忍帶要嚴格 / tighter near retirement
+  drift_warning: 0.05
+  baseline_year: 2026
+
+assumptions:
+  monthly_expense: 150000
+  base_currency: TWD
+
+manual_assets:
+  - name: "自用住宅(本人)"
+    category: "Real Estate"
+    amount: 32000000
+    currency: TWD
+  - name: "自用住宅(配偶)"
+    category: "Real Estate"
+    amount: 36000000
+    currency: TWD
+
+annual_expenses:
+  - name: "壽險+醫療險保費"
+    amount: 120000
+    category: insurance
+  - name: "綜合所得稅"
+    amount: 50000
+    category: ""
+
+category_rules:
+  # --- 收入 ---
+  "獎金薪資": salary
+  "薪資": salary
+  "salary": salary
+  "payroll": salary
+  # --- 房貸（系統自動區分本金 vs 利息）---
+  "房貸": housing
+  "繳放款": housing
+  "mortgage": housing
+  # --- 租金收入 ---
+  # "租金": rental_income       # 如果有收租的話 / if you have rental income
+  # --- 投資收益 ---
+  "股息": dividend
+  "dividend": dividend
+  "配息": dividend
+  "利息": interest_income
+  "匯息": interest_income
+  # --- 保險 ---
+  "保險": insurance
+  "insurance": insurance
+  # --- 信託/基金 ---
+  "信託": capital_transfer
+  "贖回": capital_transfer
+  # --- 內部轉帳（小心：順序很重要）---
+  "自扣已入帳": internal_transfer
+  "回饋入帳": internal_transfer
+  "轉帳": internal_transfer
+  "transfer": internal_transfer
+  # --- 你可以加更多銀行特有的關鍵字 ---
+  # "公司薪轉": salary            # 公司薪轉入帳 company payroll
+  # "轉出XXXXXX": salary         # 特定帳號薪轉
+
+fx_rates:
+  USD_TWD: 32.0
+  JPY_TWD: 0.21
+  CNY_TWD: 4.4
+  AUD_TWD: 20.5
+  EUR_TWD: 34.5
+  THB_TWD: 0.92

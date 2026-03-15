@@ -117,25 +117,46 @@ def cmd_cfo(args):
         sys.exit(1)
 
     # Warn about potential CC double-counting
+    cc_double_warn = None
     cc_accounts = {t["account"] for t in all_tx if "信用卡" in t.get("account", "") or "credit" in t.get("account", "").lower()}
     if cc_accounts:
         card_payment_tx = [t for t in all_tx if t["account"] not in cc_accounts and "卡費" in t.get("description", "")]
         if card_payment_tx:
-            print(f"  WARNING: Detected {len(card_payment_tx)} bank transactions with '卡費' "
-                  f"AND {sum(len([t for t in all_tx if t['account'] == a]) for a in cc_accounts)} CC transactions. "
-                  f"Check for double-counting.", file=sys.stderr)
+            cc_count = sum(len([t for t in all_tx if t["account"] == a]) for a in cc_accounts)
+            cc_double_warn = (f"偵測到 {len(card_payment_tx)} 筆銀行端卡費扣款 + "
+                              f"{cc_count} 筆信用卡消費明細。"
+                              f"若兩邊都匯入，請在 category_rules 中將卡費標為 internal_transfer，"
+                              f"否則支出會重複計算。")
+            print(f"  WARNING: {cc_double_warn}", file=sys.stderr)
+
+    # Inject annual expenses as prorated monthly transactions
+    annual_expenses = cfg.get("annual_expenses", [])
+    for ae in annual_expenses:
+        raw = ae["amount"]
+        # Positive amount = expense (negate it); negative = income (keep sign)
+        monthly_amt = (-abs(raw) if raw > 0 else abs(raw)) / 12
+        all_tx.append({
+            "date": "",
+            "description": ae.get("name", "年度費用"),
+            "amount": monthly_amt,
+            "currency": ae.get("currency", "TWD"),
+            "category": ae.get("category", ""),
+            "account": "config (年度分攤)",
+        })
+    if annual_expenses:
+        print(f"  Injected {len(annual_expenses)} annual expenses (prorated monthly)")
 
     print(f"\n  Total: {len(all_tx)} transactions, {len(all_assets)} assets\n")
 
     # Compute
-    is_buckets = compute_income_statement(all_tx, to_twd)
+    is_buckets, classified_tx = compute_income_statement(all_tx, to_twd)
     manual_assets = cfg.get("manual_assets", [])
     bs = compute_balance_sheet(all_assets, manual_assets, to_twd) if all_assets else None
 
     cash_flow = compute_cash_flow(is_buckets)
 
     # Output dir (resolve early for cache_dir)
-    output_dir = args.output or "."
+    output_dir = args.output or "output"
     period = args.period or "unknown"
 
     cache_dir = str(Path(output_dir) / ".cache")
@@ -155,7 +176,11 @@ def cmd_cfo(args):
         glide = diagnose_drift(equity_ratio, cfg)
 
     # Render report
-    report = render_cfo_report(period, is_buckets, bs, cash_flow, market, glide, cfg)
+    warnings = []
+    if cc_double_warn:
+        warnings.append(cc_double_warn)
+    report = render_cfo_report(period, is_buckets, bs, cash_flow, market, glide, cfg,
+                               classified_tx=classified_tx, warnings=warnings)
 
     # Output
     Path(output_dir).mkdir(parents=True, exist_ok=True)
@@ -210,7 +235,7 @@ def cmd_track(args):
     # Render
     report = render_track_report(snapshots, glide, cfg)
 
-    output_dir = args.output or "."
+    output_dir = args.output or "output"
     Path(output_dir).mkdir(parents=True, exist_ok=True)
     report_path = Path(output_dir) / f"track_audit_{latest['period']}.md"
     _atomic_write(str(report_path), report)

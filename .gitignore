@@ -1,5 +1,6 @@
 .DS_Store
 financial_report_*.md
+!examples/sample_output/*.md
 __pycache__/
 *.pyc
 *.pyo
@@ -13,6 +14,7 @@ config.yaml
 !examples/*.csv
 .cache/
 snapshots/
+!examples/sample_output/snapshots/
 output/
 .venv/
 venv/

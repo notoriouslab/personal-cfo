@@ -2,8 +2,6 @@
 
 import sys
 
-_warned_currencies = set()
-
 
 def make_fx(rates_config):
     """Create a converter function from config fx_rates dict.
@@ -17,17 +15,19 @@ def make_fx(rates_config):
         if len(parts) == 2:
             rates[parts[0].upper()] = float(val)
 
+    warned = set()
+
     def to_twd(currency, amount):
         cur = currency.upper().strip()
         if cur == "TWD":
             return float(amount)
         rate = rates.get(cur)
         if rate is None:
-            if cur not in _warned_currencies:
-                print(f"  WARNING: No exchange rate for {cur}→TWD in config. "
+            if cur not in warned:
+                print(f"  WARNING: No exchange rate for {cur}\u2192TWD in config. "
                       f"Using 1.0 (amount will be wrong by ~{cur} rate).",
                       file=sys.stderr)
-                _warned_currencies.add(cur)
+                warned.add(cur)
             rate = 1.0
         return float(amount) * rate
 

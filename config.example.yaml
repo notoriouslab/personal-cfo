@@ -1,76 +1,148 @@
-# personal-cfo configuration
-# Copy to config.yaml and edit with your parameters.
+# personal-cfo 設定檔 / Configuration
+# 複製後改名: cp config.example.yaml config.yaml
+# Copy and rename: cp config.example.yaml config.yaml
+#
+# 這個檔案定義「你是誰」和「你的規則」。
+# 每個人的狀況不同，沒有通用最佳值。
+# 參見 examples/ 目錄中的不同情境範本。
+#
+# This file defines "who you are" and "your rules".
+# There is no universal best value — adapt to your situation.
+# See examples/ directory for scenario templates.
 
+# --- 人生規劃 / Life Plan ---
+# 只需要兩個數字：你幾年出生、打算幾歲退休。
+# Just two numbers: when you were born, when you plan to retire.
 life_plan:
-  birth_year: 1980
-  retirement_age: 65
+  birth_year: 1980              # 出生年 / birth year
+  retirement_age: 65            # 預計退休年齡 / target retirement age
 
+# --- 退休滑行路徑 / Retirement Glide Path ---
+# 核心概念：年輕時可以承受較高股票比，越接近退休越保守。
+# Glide path 自動計算每個年齡的目標股票比例。
+#
+# Core idea: you can tolerate higher equity when young, shift to
+# conservative as retirement approaches. The glide path computes
+# your target equity ratio for each age automatically.
+#
+# 公式 / Formula:
+#   target(age) = equity_target - (age - baseline_age) * annual_derisking
+#   (floored at min_equity_floor)
+#
+# 範例 / Example: equity_target=0.40 at age 30
+#   age 30 → 40%, age 35 → 35%, age 40 → 30%, ...
 glide_path:
-  # equity_target is your target equity ratio NOW (at baseline_year).
-  # Each year after baseline_year, target drops by annual_derisking.
-  # Example: 20% at age 45, 19% at 46, 18% at 47... down to min_equity_floor.
-  equity_target: 0.20
-  annual_derisking: 0.01      # reduce equity target by 1% per year
-  min_equity_floor: 0.05      # never go below 5% equities
-  drift_tolerance: 0.03       # within ±3% = on_track
-  drift_warning: 0.05         # beyond ±5% = major_drift
-  # baseline_year: 2026       # (optional) year when equity_target was set; defaults to current year
+  equity_target: 0.20           # 你「現在」覺得合適的股票比 / your current target equity ratio
+  annual_derisking: 0.01        # 每年遞減多少 / how much to reduce per year (1% is conservative)
+  min_equity_floor: 0.05        # 再怎麼保守也不低於這個 / absolute minimum (for inflation hedge)
+  drift_tolerance: 0.03         # 在這範圍內不提醒 / no alert within this band (±3%)
+  drift_warning: 0.05           # 超過這個值 = 重大偏移 / beyond this = major drift alert (±5%)
+  # baseline_year: 2026         # （選填）你設定 equity_target 的那年，預設為當年
+                                # (optional) the year you calibrated equity_target; defaults to current year
 
+# --- 基本假設 / Assumptions ---
+# 用於退休軌道的安全邊際計算。不需要精確，抓大方向就好。
+# Used for retirement safety margin. Doesn't need to be precise — ballpark is fine.
 assumptions:
-  monthly_expense: 100000     # monthly living expense in base currency
+  monthly_expense: 100000       # 每月生活費（基礎貨幣）/ monthly living expense in base currency
   base_currency: TWD
 
-# Assets not in bank statements (real estate, etc.)
+# --- 手動資產 / Manual Assets ---
+# 不在銀行帳單中的資產（不動產、車輛等）
+# Assets not in bank statements (real estate, vehicles, etc.)
 manual_assets:
-  - name: "Primary residence"
-    category: "Real Estate"
+  - name: "Primary residence"   # 資產名稱 / asset name
+    category: "Real Estate"     # 分類 / category (see below for valid names)
     amount: 20000000
     currency: TWD
+  # - name: "Car"
+  #   category: "Other"
+  #   amount: 500000
+  #   currency: TWD
 
-# Transaction classification rules: keyword → category
+# 有效的資產分類 / Valid asset categories:
+#   Cash, Deposit, Savings, Fixed Deposit  → 流動資產 (liquid_cash)
+#   Stock, ETF, Equity, Equities, Fund     → 股票 (equities)
+#   Bond, Bonds, Structured Note, Investment → 債券 (bonds)
+#   Insurance                               → 保險 (insurance)
+#   Real Estate                             → 不動產 (real_estate)
+#   Loan, Mortgage, Liability, Credit Card  → 負債 (liabilities)
+
+# --- 交易分類規則 / Transaction Classification Rules ---
+#
+# 這是你最需要客製化的部分。每家銀行的交易描述不同，
+# 你需要看自己的帳單，找出關鍵字，然後寫在這裡。
+# This is the section you'll customize most. Every bank uses different
+# transaction descriptions — look at your statements and add keywords here.
+#
+# 重要：
+# - 規則按順序匹配，精確的關鍵字放前面
+#   例：「獎金薪資」要在「薪資」前面，否則「獎金薪資」會先配到「薪資」
+# - 比對方式：關鍵字出現在交易描述中的任何位置即匹配
+# - 沒有匹配的交易會歸入「生活與其他 (Living/Other)」
 #
 # IMPORTANT:
 # - Rules are matched in order. More specific keywords should come FIRST.
-#   Example: "獎金薪資" should come before "薪資" to avoid partial matches.
-# - The classifier checks if keyword appears anywhere in the transaction description.
-# - If no rule matches, the built-in classifier makes a best-effort guess.
-#   For accurate results, set rules for your common transaction types.
+# - The classifier checks if keyword appears anywhere in the description.
+# - Unmatched transactions fall into "Living/Other".
 #
-# Special categories:
-# - "internal_transfer": excluded from Income Statement (asset moves, not income/expense)
-#   Use this for transfers between your own accounts.
-#   WARNING: Do NOT mark credit card payments as internal_transfer unless
-#   you also have the CC statement imported (otherwise the expense disappears).
-# - "salary", "income": → Salary/Income bucket
-# - "dividend", "interest_income": → Investment Income bucket
-# - "housing": → Mortgage (principal or interest, auto-detected by description)
-# - "insurance": → Living/Other
+# 可用的特殊分類 / Available special categories:
+#   internal_transfer  → 排除（帳戶間移轉）/ excluded (inter-account moves)
+#   salary, income     → 經常性收入 / regular income
+#   dividend           → 投資收益（股息）/ investment income (dividends)
+#   interest_income    → 投資收益（利息）/ investment income (interest)
+#   rental_income      → 投資收益（租金）/ investment income (rental)
+#   housing            → 房貸（自動區分本金/利息）/ mortgage (auto-splits principal vs interest)
+#   mortgage_interest  → 直接指定為房貸利息 / force-classify as mortgage interest
+#   insurance          → 生活與其他 / living/other
+#   capital_transfer   → 投資/資本轉移 / capital transfer (asset swaps)
+#   capex              → 資本支出 / capital expenditure
+#   ignore             → 完全忽略 / completely ignored
+#
+# 注意：信用卡繳款只在「兩邊帳單都匯入」時才標 internal_transfer
+# WARNING: Only mark CC payments as internal_transfer if both sides are imported
 category_rules:
-  "獎金薪資": salary          # bonus salary — put before "薪資"
-  "薪資": salary
+  "獎金薪資": salary              # 獎金 bonus — 放在「薪資」前面
+  "薪資": salary                  # 薪水 salary
   "salary": salary
   "payroll": salary
-  "房貸": housing
+  "房貸": housing                 # 房貸 mortgage
   "mortgage": housing
-  "繳放款": housing            # bank loan payment (principal+interest)
-  "股息": dividend
+  "繳放款": housing               # 銀行放款繳款 bank loan payment
+  "股息": dividend                # 股票股息 stock dividend
   "dividend": dividend
-  "配息": dividend
-  "利息": interest_income      # bank interest
-  "匯息": interest_income      # forex interest
-  "保險": insurance
+  "配息": dividend                # 基金/債券配息 fund/bond distribution
+  "利息": interest_income         # 銀行利息 bank interest
+  "匯息": interest_income         # 外幣利息 forex interest
+  "保險": insurance               # 保費 insurance premium
   "insurance": insurance
-  "信託": capital_transfer     # trust product (redemption/purchase)
-  "贖回": capital_transfer
-  "自扣已入帳": internal_transfer  # CC auto-payment confirmation
-  "回饋入帳": internal_transfer    # cashback credit (zero amount)
-  "轉帳": internal_transfer
+  "信託": capital_transfer        # 信託產品（贖回/申購）trust product
+  "贖回": capital_transfer        # 基金贖回 fund redemption
+  # "公司薪轉": salary              # 範例：公司薪轉入帳 company payroll (customize to your keyword)
+  # "轉出XXXXXX": salary           # 範例：薪轉帳號 salary from specific account number
+  "自扣已入帳": internal_transfer # 信用卡自動扣款確認 CC auto-payment
+  "回饋入帳": internal_transfer   # 回饋金 cashback credit
+  "轉帳": internal_transfer       # 帳戶間轉帳 account transfer
   "transfer": internal_transfer
 
-# Static exchange rates to base currency (used when yfinance unavailable)
-# Format: {FROM}_{TO}: rate
-# WARNING: If a currency appears in your data but is missing here,
-# the amount will be treated as-is (rate=1.0), which is almost certainly wrong.
+# --- 年度費用 / Annual Expenses ---
+# 保險、所得稅等一年繳一次的費用，程式會自動除以 12 計入每月損益
+# Insurance, income tax, and other annual payments — prorated monthly
+# category: 用來分類（insurance → 生活與其他, fee → 摩擦成本）
+# annual_expenses:
+#   - name: "壽險+醫療險保費"
+#     amount: 120000            # 年繳金額 / annual amount
+#     category: insurance
+#   - name: "綜合所得稅"
+#     amount: 50000             # 年繳金額 / annual amount
+#     category: ""              # 空白 → 歸入「生活與其他」
+
+# --- 匯率 / Exchange Rates ---
+# 靜態匯率，用於離線模式或 yfinance 無法取得時
+# Static rates, used in offline mode or when yfinance is unavailable
+# 格式 / Format: {FROM}_{TO}: rate
+# 注意：如果你的資料有某幣別但這裡沒設定，金額會直接用原值（匯率=1.0），幾乎一定是錯的
+# WARNING: Missing currency → rate defaults to 1.0, which is almost certainly wrong
 fx_rates:
   USD_TWD: 32.0
   JPY_TWD: 0.21
