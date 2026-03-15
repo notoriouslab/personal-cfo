@@ -23,7 +23,10 @@ def parse_csv(path, category_rules=None):
         if "date" not in row or "amount" not in row:
             continue
 
-        amt = _clean_amount(row.get("amount", 0))
+        try:
+            amt = _clean_amount(row.get("amount", 0))
+        except (ValueError, TypeError):
+            continue
         if amt == 0:
             continue
 
@@ -50,7 +53,10 @@ def parse_assets_csv(path):
 
     assets = []
     for row in reader:
-        amt = _clean_amount(row.get("amount", 0))
+        try:
+            amt = _clean_amount(row.get("amount", 0))
+        except (ValueError, TypeError):
+            continue
         if amt == 0:
             continue
         assets.append(Asset(

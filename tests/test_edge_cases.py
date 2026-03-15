@@ -87,13 +87,16 @@ class TestCorruptInputs:
         assert tx == []
 
     def test_csv_non_numeric_amount(self, tmp_path):
-        """Non-numeric amount should be skipped."""
+        """Non-numeric amount should be skipped, not crash."""
         csv_file = tmp_path / "bad.csv"
-        csv_file.write_text("date,description,amount\n2026-01-01,X,abc\n")
-        # _clean_amount will raise ValueError, row should be skipped
-        # Actually parse_csv doesn't catch this, let's check
-        with pytest.raises(ValueError):
-            parse_csv(csv_file)
+        csv_file.write_text(
+            "date,description,amount\n"
+            "2026-01-01,Bad,abc\n"
+            "2026-01-02,Good,1000\n"
+        )
+        txs = parse_csv(csv_file)
+        assert len(txs) == 1
+        assert txs[0].description == "Good"
 
     def test_markdown_no_tables(self, tmp_path):
         """Markdown with no pipe tables should return empty."""

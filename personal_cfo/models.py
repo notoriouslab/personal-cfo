@@ -1,7 +1,6 @@
 """Core data structures for personal-cfo."""
 
-from dataclasses import dataclass, field, asdict
-from typing import Optional
+from dataclasses import dataclass, asdict
 
 
 @dataclass
@@ -72,16 +71,3 @@ class GlideDiagnosis:
     abs_drift: float
     status: str  # "on_track" | "minor_drift" | "major_drift"
     message: str
-
-
-@dataclass
-class Snapshot:
-    """Monthly asset snapshot for track mode."""
-    period: str
-    net_worth: float
-    total_assets: float
-    total_liabilities: float
-    total_cash: float
-    equity_ratio: float
-    risk_buckets: dict = field(default_factory=dict)
-    glide_path: Optional[GlideDiagnosis] = None
