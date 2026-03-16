@@ -8,7 +8,7 @@ class TestLoadConfig:
     def test_defaults_when_no_file(self, tmp_path):
         cfg = load_config(str(tmp_path / "nonexistent.yaml"))
         assert cfg["life_plan"]["birth_year"] == 1980
-        assert cfg["glide_path"]["equity_target"] == 0.20
+        assert cfg["glide_path"]["equity_target"] == 0.60
         assert cfg["assumptions"]["base_currency"] == "TWD"
 
     def test_loads_example_config(self):
@@ -55,7 +55,7 @@ class TestLoadConfig:
         assert cfg["glide_path"]["equity_target"] == 0.30
         # These must survive the merge — previously they were wiped
         assert cfg["glide_path"]["annual_derisking"] == 0.01
-        assert cfg["glide_path"]["min_equity_floor"] == 0.05
+        assert cfg["glide_path"]["min_equity_floor"] == 0.30
         assert cfg["glide_path"]["drift_tolerance"] == 0.03
         assert cfg["glide_path"]["drift_warning"] == 0.05
 

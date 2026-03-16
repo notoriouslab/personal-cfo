@@ -71,3 +71,20 @@ class GlideDiagnosis:
     abs_drift: float
     status: str  # "on_track" | "minor_drift" | "major_drift"
     message: str
+
+
+@dataclass
+class ProjectionYear:
+    """One row of the retirement projection table."""
+    age: int
+    year: int
+    phase: str               # "accumulation" | "retirement"
+    liquid_assets: float     # liquid portion (excl. real estate)
+    illiquid_assets: float   # real estate etc.
+    annual_expense: float    # inflation-adjusted expense for this year
+    weighted_return: float   # portfolio return rate for this year
+    liquid_gain: float       # investment return on liquid assets only
+    illiquid_gain: float     # appreciation on illiquid assets (real estate)
+    net_flow: float          # +savings or -withdrawal
+    net_worth: float         # end of year total
+    depleted: bool           # True if liquid assets hit zero

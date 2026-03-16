@@ -2,7 +2,7 @@
 
 > [繁體中文 README](README.md)
 
-**Reference implementation** — how a non-professional investor can monitor their retirement glide path with deterministic computation.
+**Reference implementation** — how a non-professional investor can monitor their retirement glide path and project retirement readiness with deterministic computation.
 
 Bank statements in, financial reports out, your data stays local. Fork it and adapt `config.yaml` to your situation.
 
@@ -23,6 +23,7 @@ A **framework and template** for monthly financial checkups. It demonstrates a m
 | Feature | Description |
 |---------|-------------|
 | Post-hoc audit | Uses last month's bank statements, 100% objective, no forecasting |
+| Retirement projection | Will your money last? Simulates year-by-year with inflation and returns |
 | Deterministic computation | Python calculates the numbers, zero hallucination, no AI guessing |
 | Retirement glide path | Automatically reduces equity target with age, alerts only on drift |
 | Anti-noise | Stays silent when on track, doesn't manufacture anxiety |
@@ -35,11 +36,22 @@ Everyone's financial situation is different. This tool gives you a starting poin
 
 ## What It Produces
 
+**CFO Report** (`cfo` command — facts):
 - **Income Statement** (8-category P&L)
 - **Balance Sheet** (assets vs liabilities by risk bucket)
 - **Cash Flow Summary** (operating inflow/outflow)
 - **Market Anchors** (global indicators for context)
 - **Retirement Glide Path Diagnosis** (are you on track?)
+
+**Projection Report** (`project` command — assumptions):
+- **Year-by-year asset projection** (from now to life expectancy)
+- **Retirement readiness** (4% / 3.5% Rule benchmarks)
+- **Depletion warning** (when do liquid assets hit zero?)
+- **Pension offset** (social security reduces the gap)
+
+![Projection — assumption parameters](examples/sample_output/2026-03-16-04.png)
+
+![Retirement readiness — 4% / 3.5% Rule benchmark](examples/sample_output/2026-03-16-05.png)
 
 See `examples/sample_output/` for a complete report example:
 
@@ -98,6 +110,10 @@ python -m personal_cfo cfo \
 
 # Retirement track check (from saved snapshots)
 python -m personal_cfo track --snapshots ./output/snapshots/
+
+# Retirement projection (will my money last?)
+python -m personal_cfo project \
+  --snapshot ./output/snapshots/2026-01_asset_snapshot.json
 ```
 
 ## Input Formats
@@ -123,8 +139,10 @@ See `config.example.yaml` for all options:
 
 | Section | Purpose |
 |---------|---------|
-| `life_plan` | Birth year, retirement age |
+| `life_plan` | Birth year, retirement age, life expectancy, pension |
 | `glide_path` | Equity target, annual derisking rate, drift thresholds |
+| `assumptions` | Monthly expense, inflation rate, annual net savings |
+| `projection` | Expected returns per asset class (for `project` command) |
 | `manual_assets` | Assets not in bank statements (real estate, etc.) |
 | `category_rules` | Keyword → category mapping (**order matters**, specific first) |
 | `annual_expenses` | Annual expenses (insurance, tax), auto-prorated to monthly |
@@ -132,20 +150,36 @@ See `config.example.yaml` for all options:
 
 ## CLI Options
 
+Three subcommands:
+
+| Command | Purpose | Input |
+|---------|---------|-------|
+| `cfo` | Monthly financial audit (facts) | Statement CSV/Markdown |
+| `track` | Retirement glide path tracking | Snapshot directory |
+| `project` | Retirement projection (assumptions) | Single snapshot JSON |
+
 ```
 python -m personal_cfo cfo --help
 python -m personal_cfo track --help
+python -m personal_cfo project --help
 ```
+
+**`cfo` options:**
 
 | Option | Description |
 |--------|-------------|
 | `--transactions`, `-t` | Transaction CSV files, Markdown files, or directory |
 | `--assets`, `-a` | Assets CSV file (optional) |
 | `--period`, `-p` | Period label (e.g. `2026-01`) |
-| `--config`, `-c` | Config file path (default: `config.yaml`) |
-| `--output`, `-o` | Output directory |
 | `--offline` | Skip network calls (use cached/hardcoded market data) |
-| `--quiet`, `-q` | Only save files, no stdout |
+
+**`project` options:**
+
+| Option | Description |
+|--------|-------------|
+| `--snapshot`, `-s` | Snapshot JSON file (default: latest snapshot) |
+
+**Shared options:** `--config`/`-c`, `--output`/`-o`, `--quiet`/`-q`
 
 ## Usage Scenarios
 
@@ -169,6 +203,16 @@ The `examples/` directory includes config templates for different life stages an
 | `sample_output/` | Generated report | Full analysis of the above three statements |
 
 These are not "best configs" — they help you understand why each parameter exists, so you can write your own.
+
+## Quick Experiments
+
+Want to see how sensitive retirement planning is? Try these:
+
+1. Set `life_expectancy` to 95 — does longevity turn the curve red?
+2. Look up your pension estimate (5 minutes) and fill in `expected_pension_monthly` — feel the power of "floor income"
+3. Bump `inflation_rate` to 0.03 — simulate higher medical/food inflation
+
+Run `project` again after each change. You'll quickly realize why these parameters matter.
 
 ## Security
 

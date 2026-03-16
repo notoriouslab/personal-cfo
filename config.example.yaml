@@ -2,12 +2,14 @@
 # 複製後改名: cp config.example.yaml config.yaml
 # Copy and rename: cp config.example.yaml config.yaml
 #
-# 這個檔案定義「你是誰」和「你的規則」。
-# 每個人的狀況不同，沒有通用最佳值。
-# 參見 examples/ 目錄中的不同情境範本。
+# ━━━ 快速開始：你只需要改這三個 / Quick start: change only these 3 ━━━
 #
-# This file defines "who you are" and "your rules".
-# There is no universal best value — adapt to your situation.
+#   life_plan.birth_year        → 你的出生年
+#   life_plan.retirement_age    → 你打算幾歲退休
+#   assumptions.monthly_expense → 你每月花多少
+#
+# 其他全部有預設值，不填也能跑。往下看的都是進階選項。
+# Everything else has sensible defaults. Below are all advanced options.
 # See examples/ directory for scenario templates.
 
 # --- 人生規劃 / Life Plan ---
@@ -16,6 +18,11 @@
 life_plan:
   birth_year: 1980              # 出生年 / birth year
   retirement_age: 65            # 預計退休年齡 / target retirement age
+  # life_expectancy: 90         # 預期壽命 / life expectancy (default: 90)
+                                # 台灣男性平均 77.42（2024 內政部），+13 年長壽風險緩衝
+                                # Taiwan male avg 77.42 (2024). +13 years longevity buffer
+  # expected_pension_monthly: 0  # 退休後每月年金收入（勞保+勞退）/ monthly pension after retirement
+                                # 可查勞保局試算：https://www.bli.gov.tw/0100398.html
 
 # --- 退休滑行路徑 / Retirement Glide Path ---
 # 核心概念：年輕時可以承受較高股票比，越接近退休越保守。
@@ -32,20 +39,25 @@ life_plan:
 # 範例 / Example: equity_target=0.40 at age 30
 #   age 30 → 40%, age 35 → 35%, age 40 → 30%, ...
 glide_path:
-  equity_target: 0.20           # 你「現在」覺得合適的股票比 / your current target equity ratio
+  equity_target: 0.60           # 你「現在」覺得合適的股票比 / your current target equity ratio
+                                # 60% 是經典 60/40 配置，保守的人可以降到 40%
   annual_derisking: 0.01        # 每年遞減多少 / how much to reduce per year (1% is conservative)
-  min_equity_floor: 0.05        # 再怎麼保守也不低於這個 / absolute minimum (for inflation hedge)
+  min_equity_floor: 0.30        # 再怎麼保守也不低於這個 / absolute minimum (for inflation hedge)
   drift_tolerance: 0.03         # 在這範圍內不提醒 / no alert within this band (±3%)
   drift_warning: 0.05           # 超過這個值 = 重大偏移 / beyond this = major drift alert (±5%)
-  # baseline_year: 2026         # （選填）你設定 equity_target 的那年，預設為當年
-                                # (optional) the year you calibrated equity_target; defaults to current year
 
 # --- 基本假設 / Assumptions ---
 # 用於退休軌道的安全邊際計算。不需要精確，抓大方向就好。
 # Used for retirement safety margin. Doesn't need to be precise — ballpark is fine.
 assumptions:
-  monthly_expense: 100000       # 每月生活費（基礎貨幣）/ monthly living expense in base currency
+  monthly_expense: 60000        # 每月生活費（基礎貨幣）/ monthly living expense in base currency
+                                # 台灣小康家庭約 5-7 萬 / typical Taiwan middle-class: 50k-70k
   base_currency: TWD
+  # inflation_rate: 0.025       # 年通膨率 / annual inflation rate (2.5%)
+  # annual_savings: 0           # 累積期每年淨儲蓄（薪資 - 生活費 - 房貸 - 保險 = 剩餘）
+                                # net annual savings during accumulation (salary minus ALL expenses)
+                                # 0 = 薪資剛好打平支出。負值 = 入不敷出，要吃老本
+                                # 0 = break even. Negative = drawing from portfolio
 
 # --- 手動資產 / Manual Assets ---
 # 不在銀行帳單中的資產（不動產、車輛等）
@@ -53,7 +65,7 @@ assumptions:
 manual_assets:
   - name: "Primary residence"   # 資產名稱 / asset name
     category: "Real Estate"     # 分類 / category (see below for valid names)
-    amount: 20000000
+    amount: 20000000            # 範例數字，還沒買房的話整段刪掉就好，不要有壓力
     currency: TWD
   # - name: "Car"
   #   category: "Other"
@@ -143,6 +155,19 @@ category_rules:
 # 格式 / Format: {FROM}_{TO}: rate
 # 注意：如果你的資料有某幣別但這裡沒設定，金額會直接用原值（匯率=1.0），幾乎一定是錯的
 # WARNING: Missing currency → rate defaults to 1.0, which is almost certainly wrong
+# --- 退休投影假設 / Projection Assumptions ---
+# 用於 `project` 子命令的長期推估。這些都是假設，不是預測。
+# Used by `project` subcommand for long-term simulation.
+# These are assumptions, NOT predictions.
+#
+# projection:
+#   expected_returns:
+#     equities: 0.07            # 股票名目報酬 / nominal equity return (7%)
+#     bonds: 0.015              # 債券 / bonds (1.5%, 台灣本土債券實質偏低)
+#     liquid_cash: 0.015        # 現金利率 / cash yield (1.5%)
+#     insurance: 0.02           # 保險增值 / insurance growth (2%)
+#     other: 0.01               # 其他 / other (1%)
+
 fx_rates:
   USD_TWD: 32.0
   JPY_TWD: 0.21

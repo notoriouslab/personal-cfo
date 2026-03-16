@@ -24,7 +24,7 @@ glide_path:
   baseline_year: 2026
 
 assumptions:
-  monthly_expense: 150000
+  monthly_expense: 100000       # 接近退休、較高生活水準 / pre-retirement, higher standard
   base_currency: TWD
 
 manual_assets:

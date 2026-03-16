@@ -249,6 +249,58 @@ def cmd_track(args):
         print(report)
 
 
+def _find_latest_snapshot(snap_dir):
+    """Find the latest snapshot JSON in directory."""
+    snap_path = Path(snap_dir)
+    if not snap_path.exists():
+        print(f"Error: Snapshots directory not found: {snap_path}", file=sys.stderr)
+        sys.exit(1)
+    files = sorted(snap_path.glob("*_asset_snapshot.json"))
+    if not files:
+        print("Error: No snapshot files found.", file=sys.stderr)
+        sys.exit(1)
+    return str(files[-1])
+
+
+def cmd_project(args):
+    """Run Project mode — retirement projection simulation."""
+    cfg = load_config(args.config)
+
+    # Load snapshot
+    if args.snapshot:
+        snap_path = Path(args.snapshot)
+    else:
+        output_dir = args.output or "output"
+        snap_path = Path(_find_latest_snapshot(str(Path(output_dir) / "snapshots")))
+
+    if not snap_path.exists():
+        print(f"Error: Snapshot not found: {snap_path}", file=sys.stderr)
+        sys.exit(1)
+
+    snapshot = json.loads(snap_path.read_text(encoding="utf-8"))
+    print(f"  Loaded snapshot: {snap_path.name} (period: {snapshot.get('period', '?')})")
+
+    # Run projection
+    from .projection import run_projection, projection_summary
+    from .report import render_projection_report
+
+    rows = run_projection(snapshot, cfg)
+    summary = projection_summary(rows, cfg)
+    report = render_projection_report(snapshot, rows, summary, cfg)
+
+    # Output
+    output_dir = args.output or "output"
+    Path(output_dir).mkdir(parents=True, exist_ok=True)
+    period = snapshot.get("period", "unknown")
+    report_path = Path(output_dir) / f"projection_{period}.md"
+    _atomic_write(str(report_path), report)
+    print(f"  Report saved: {report_path}")
+
+    if not args.quiet:
+        print(f"\n{'='*60}")
+        print(report)
+
+
 def main():
     parser = argparse.ArgumentParser(
         prog="personal-cfo",
@@ -275,12 +327,21 @@ def main():
     track.add_argument("--output", "-o", help="Output directory")
     track.add_argument("--quiet", "-q", action="store_true", help="Only save files, no stdout")
 
+    # Project mode
+    proj = sub.add_parser("project", help="Retirement projection simulation")
+    proj.add_argument("--snapshot", "-s", help="Snapshot JSON file (default: latest in output/snapshots/)")
+    proj.add_argument("--config", "-c", default="config.yaml", help="Config file path")
+    proj.add_argument("--output", "-o", help="Output directory")
+    proj.add_argument("--quiet", "-q", action="store_true", help="Only save files, no stdout")
+
     args = parser.parse_args()
 
     if args.command == "cfo":
         cmd_cfo(args)
     elif args.command == "track":
         cmd_track(args)
+    elif args.command == "project":
+        cmd_project(args)
     else:
         parser.print_help()
         sys.exit(1)

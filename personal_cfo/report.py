@@ -200,7 +200,14 @@ def render_cfo_report(period, is_buckets, bs, cash_flow, market, glide, cfg,
         lines.append("### 關鍵指標\n")
         lines.append(f"| 指標 | 數值 | |")
         lines.append("|------|------:|:--:|")
+        # Liquid equity ratio (excludes real estate from denominator)
+        financial_assets = (bs.total_assets
+                           - bs.risk_buckets.get("real_estate", 0))
+        liquid_eq_ratio = (bs.risk_buckets.get("equities", 0)
+                          / financial_assets if financial_assets > 0 else 0)
+
         lines.append(f"| 負債比 | {_pct(liability_ratio)} | {C_HARD} |")
+        lines.append(f"| 金融資產股票比 | {_pct(liquid_eq_ratio)} | {C_HARD} |")
         lines.append(f"| 緊急預備金 | {emergency_months:.1f} 個月 | {C_HARD} |")
         lines.append(f"| 儲蓄率 | {sr_str} | {C_HARD} |")
 
@@ -318,5 +325,127 @@ def render_track_report(snapshots, glide, cfg):
             marker = " ← now" if age == current_age else ""
             lines.append(f"| {age} | {_pct(target)}{marker} |")
         lines.append("")
+
+    return "\n".join(lines)
+
+
+def render_projection_report(snapshot, rows, summary, cfg):
+    """Render retirement projection as Markdown report."""
+    lp = cfg["life_plan"]
+    assume = cfg["assumptions"]
+    proj = cfg.get("projection", {})
+    er = proj.get("expected_returns", {})
+    period = snapshot.get("period", "unknown")
+
+    lines = []
+    lines.append(f"# 退休投影報告 — {period}\n")
+    lines.append("> ⚠️ **免責聲明**：本報告基於假設推估，非預測亦非投資建議。")
+    lines.append("> 實際結果受市場波動、政策變化、健康狀況等影響，可能大幅偏離推估。")
+    lines.append("> 請定期重新評估，並諮詢專業顧問。\n")
+    lines.append("---\n")
+
+    # --- Assumptions ---
+    lines.append("## 假設參數\n")
+    lines.append("| 參數 | 數值 | 來源 |")
+    lines.append("|------|-----:|------|")
+    lines.append(f"| 出生年 | {lp['birth_year']} | ⚪ config |")
+    lines.append(f"| 退休年齡 | {lp['retirement_age']} | ⚪ config |")
+    lines.append(f"| 預期壽命 | {lp.get('life_expectancy', 84)} | ⚪ config |")
+    lines.append(f"| 每月生活費 | {_fmt(assume['monthly_expense'])} | ⚪ config |")
+    lines.append(f"| 通膨率 | {_pct(assume.get('inflation_rate', 0.025))}/年 | ⚪ config |")
+    savings = assume.get("annual_savings", 0)
+    lines.append(f"| 年度儲蓄 | {_fmt(savings)} | ⚪ config |")
+    pension = lp.get("expected_pension_monthly", 0)
+    if pension > 0:
+        lines.append(f"| 退休後月領年金 | {_fmt(pension)} | ⚪ config (勞保+勞退) |")
+    for bucket in ("equities", "bonds", "liquid_cash", "insurance"):
+        label = {"equities": "股票預期報酬", "bonds": "債券預期報酬",
+                 "liquid_cash": "現金利率",
+                 "insurance": "保險增值"}.get(bucket, bucket)
+        rate = er.get(bucket, 0)
+        lines.append(f"| {label} | {_pct(rate)}/年 | ⚪ config |")
+    lines.append("")
+
+    # --- Readiness ---
+    lines.append("## 退休準備度\n")
+    lines.append("| 指標 | 數值 |")
+    lines.append("|------|-----:|")
+    lines.append(f"| 現在年齡 | {summary['current_age']} |")
+    lines.append(f"| 距退休 | {summary['years_to_retirement']} 年 |")
+    lines.append(f"| 退休後年數 | {summary['years_in_retirement']} 年 |")
+    lines.append(f"| 目前淨資產 | {_fmt(round(snapshot.get('net_worth', 0)))} |")
+
+    from .projection import split_liquid_illiquid
+    liquid, illiquid = split_liquid_illiquid(snapshot.get("risk_buckets", {}))
+    lines.append(f"| 目前流動資產 | {_fmt(round(liquid))} |")
+    lines.append(f"| 預估退休時淨資產 | {_fmt(round(summary['retire_start_net_worth']))} |")
+    lines.append(f"| 預估退休時流動資產 | {_fmt(round(summary['retire_start_liquid']))} |")
+    lines.append(f"| 退休首年花費 | {_fmt(round(summary['retire_expense_start']))}/年 |")
+    lines.append(f"| 退休末年花費（含通膨） | {_fmt(round(summary['retire_expense_end']))}/年 |")
+    lines.append(f"| 預估壽終時淨資產 | {_fmt(round(summary['final_net_worth']))} |")
+
+    # Safe withdrawal rate benchmarks
+    # 4% is US historical; 3.5% is more conservative for non-US markets
+    retire_exp = summary.get("retire_expense_start", 0)
+    retire_liq = summary.get("retire_start_liquid", 0)
+    if retire_exp > 0:
+        for rate, label in [(0.04, "4%"), (0.035, "3.5%")]:
+            req = retire_exp / rate
+            ratio = retire_liq / req if req > 0 else 0
+            status = "✅" if ratio >= 1.0 else "⚠️"
+            pct_label = _pct(ratio) if ratio <= 5 else f"{ratio:.1f}x"
+            lines.append(f"| {label} Rule 所需退休金 | {_fmt(round(req))} ({status} {pct_label}) |")
+
+    dep = summary["depleted_age"]
+    if dep:
+        lines.append(f"| 資金枯竭年齡 | ⚠️ {dep} 歲 |")
+    else:
+        lines.append("| 資金枯竭年齡 | ✅ 不會 |")
+
+    sus = summary["sustainability"]
+    sus_label = {"sustainable": "🟢 可持續", "at_risk": "🟡 有風險",
+                 "depleted": "🔴 資金不足"}[sus]
+    lines.append(f"| 退休可行性 | {sus_label} |")
+    lines.append("")
+
+    # --- Year-by-year table ---
+    lines.append("## 年度投影\n")
+    lines.append("| 年齡 | 年 | 階段 | 流動資產 | 年度花費 | 流動收益 | 淨資產 |")
+    lines.append("|-----:|----:|:----:|---------:|---------:|---------:|-------:|")
+
+    retirement_age = lp["retirement_age"]
+    for r in rows:
+        phase_label = "累積" if r.phase == "accumulation" else "退休"
+        expense_col = "—" if r.phase == "accumulation" else _fmt(round(r.annual_expense))
+        marker = ""
+        if r.age == retirement_age:
+            marker = " ← 退休"
+        elif r.depleted:
+            marker = " ⚠️"
+        lines.append(
+            f"| {r.age} | {r.year} | {phase_label} | "
+            f"{_fmt(round(r.liquid_assets))} | {expense_col} | "
+            f"{_fmt(round(r.liquid_gain))} | "
+            f"{_fmt(round(r.net_worth))}{marker} |"
+        )
+    lines.append("")
+
+    # --- Warnings ---
+    lines.append("")
+    lines.append("> 「流動收益」僅含可提領資產的投資報酬。"
+                 "不動產增值另計入淨資產但不可提領。\n")
+
+    lines.append("## 注意事項\n")
+    if illiquid > 0:
+        lines.append(f"> ⚠️ 不動產 {_fmt(round(illiquid))} 以**原值**計入淨資產，"
+                     f"不做增值假設，且**不可提領**。退休提領僅來自流動資產。\n")
+    lines.append("> ⚠️ 本推估未考慮：稅負、重大醫療支出（醫療通膨通常為一般通膨 2-3 倍）、"
+                 "市場崩盤序列風險（sequence-of-returns risk）。\n")
+    lines.append("> 📖 提領率參考：Bengen (1994) 4%、Trinity Study (1998)。"
+                 "台灣本土市場建議 3-3.5%（波動較大、匯率風險）。"
+                 "壽命：內政部 2024 簡易生命表。"
+                 "報酬率：FP Canada 2025 PAG。\n")
+    lines.append("---\n")
+    lines.append("*由 personal-cfo 產生。所有數據皆為 ⚪ 假設推估值*")
 
     return "\n".join(lines)

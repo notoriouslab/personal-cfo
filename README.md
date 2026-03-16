@@ -2,7 +2,7 @@
 
 > [English README](README.en.md)
 
-**Reference implementation** — 展示非專業投資人如何用確定性運算做退休軌道監控。
+**Reference implementation** — 展示非專業投資人如何用確定性運算做退休軌道監控與退休投影。
 
 銀行帳單進，財務報表出，資料留在本地。Fork 後依照你的情況改 `config.yaml` 就能用。
 
@@ -23,6 +23,7 @@
 | 特色 | 說明 |
 |------|------|
 | 事後審計 | 用上個月的銀行帳單，100% 客觀，沒有預測 |
+| 退休投影 | 基於通膨、報酬率、年金假設，推算退休金夠不夠 |
 | 確定性運算 | Python 算數字，零幻覺，不靠 AI 猜 |
 | 退休滑行路徑 | 隨年齡自動降低股票比例的 glide path，偏離時才提醒 |
 | 反噪音 | 在軌道上時保持安靜，不製造焦慮 |
@@ -35,11 +36,22 @@
 
 ## 它產出什麼
 
+**CFO 報告**（`cfo` 指令 — 事實）：
 - **損益表** (8 大類 P&L)
 - **資產負債表** (依風險桶位分類)
 - **現金流量摘要** (營運收支)
 - **市場定錨** (全球指標作為背景參考)
 - **退休滑行路徑診斷** (你的退休計畫在軌道上嗎？)
+
+**退休投影報告**（`project` 指令 — 假設推估）：
+- **逐年資產推算** (從現在到預期壽命)
+- **退休準備度** (4% / 3.5% Rule 校驗)
+- **資金枯竭預警** (流動資產何時歸零？)
+- **年金抵扣** (勞保+勞退納入退休收入)
+
+![退休投影 — 假設參數](examples/sample_output/2026-03-16-04.png)
+
+![退休準備度 — 4% / 3.5% Rule 校驗](examples/sample_output/2026-03-16-05.png)
 
 參見 `examples/sample_output/` 的完整報告範例：
 
@@ -98,6 +110,10 @@ python -m personal_cfo cfo \
 
 # 退休軌道檢查（使用已儲存的快照）
 python -m personal_cfo track --snapshots ./output/snapshots/
+
+# 退休投影（我的錢夠不夠？）
+python -m personal_cfo project \
+  --snapshot ./output/snapshots/2026-01_asset_snapshot.json
 ```
 
 ## 輸入格式
@@ -123,8 +139,10 @@ date,description,amount,currency,category,account
 
 | 區塊 | 用途 |
 |------|------|
-| `life_plan` | 出生年、退休年齡 |
+| `life_plan` | 出生年、退休年齡、預期壽命、退休年金 |
 | `glide_path` | 股票目標比例、年度遞減率、漂移閾值 |
+| `assumptions` | 月支出、通膨率、年度淨儲蓄 |
+| `projection` | 各資產類別預期報酬率（用於 `project` 指令） |
 | `manual_assets` | 不在銀行帳單中的資產（不動產等） |
 | `category_rules` | 關鍵字 → 分類映射（**順序敏感**，精確的放前面） |
 | `annual_expenses` | 年度費用（保險、稅），自動除以 12 計入每月損益 |
@@ -132,20 +150,36 @@ date,description,amount,currency,category,account
 
 ## CLI 選項
 
+三個子命令：
+
+| 子命令 | 用途 | 輸入 |
+|--------|------|------|
+| `cfo` | 月度財務審計（事實） | 對帳單 CSV/Markdown |
+| `track` | 退休軌道追蹤 | 快照目錄 |
+| `project` | 退休投影（假設推估） | 單一快照 JSON |
+
 ```
 python -m personal_cfo cfo --help
 python -m personal_cfo track --help
+python -m personal_cfo project --help
 ```
+
+**`cfo` 選項：**
 
 | 選項 | 說明 |
 |------|------|
 | `--transactions`, `-t` | 交易 CSV、Markdown 檔案或目錄 |
 | `--assets`, `-a` | 資產 CSV（可選） |
 | `--period`, `-p` | 期間標籤（如 `2026-01`） |
-| `--config`, `-c` | 設定檔路徑（預設 `config.yaml`） |
-| `--output`, `-o` | 輸出目錄 |
 | `--offline` | 跳過網路（使用快取或硬編碼市場數據） |
-| `--quiet`, `-q` | 只儲存檔案，不輸出到終端 |
+
+**`project` 選項：**
+
+| 選項 | 說明 |
+|------|------|
+| `--snapshot`, `-s` | 快照 JSON 檔案（預設：最新的快照） |
+
+**共用選項：** `--config`/`-c`、`--output`/`-o`、`--quiet`/`-q`
 
 ## 使用情境範例
 
@@ -169,6 +203,16 @@ python -m personal_cfo track --help
 | `sample_output/` | 產出報告 | 上述三份帳單的完整分析結果 |
 
 這些不是「最佳設定」— 是讓你理解每個參數為什麼存在，然後寫出自己的版本。
+
+## 快速實驗
+
+想快速看到差異？試試這三招：
+
+1. 把 `life_expectancy` 改成 95，看長壽會不會讓曲線變紅
+2. 填入你的勞保試算值（[勞保局網站](https://www.bli.gov.tw/0100398.html) 5 分鐘搞定），感受「地板收入」的力量
+3. 把 `inflation_rate` 調到 0.03，模擬醫療或食物漲更快的情境
+
+改完再跑一次 `project`，你會發現「原來參數這麼敏感」。
 
 ## 安全性
 

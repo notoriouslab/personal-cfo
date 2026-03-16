@@ -24,7 +24,7 @@ glide_path:
   baseline_year: 2026
 
 assumptions:
-  monthly_expense: 120000       # 家庭月支出較高 / higher for family
+  monthly_expense: 80000        # 雙薪家庭月支出 / dual-income family
   base_currency: TWD
 
 manual_assets:
