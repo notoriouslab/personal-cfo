@@ -313,8 +313,9 @@ def render_track_report(snapshots, glide, cfg):
         lines.append("## Glide Path Table (滑行路徑)\n")
         lines.append("| Age | Target Equity |")
         lines.append("|----:|--------------:|")
+        current_age = glide.age if glide else None
         for age, target in table:
-            marker = " ← now" if age == glide.age else ""
+            marker = " ← now" if age == current_age else ""
             lines.append(f"| {age} | {_pct(target)}{marker} |")
         lines.append("")
 

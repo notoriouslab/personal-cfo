@@ -151,8 +151,10 @@ def parse_single_md(path, category_rules=None):
                 # Cross-reference with multi-map for collision safety
                 json_by_sig = defaultdict(list)
                 for idx, t in enumerate(transactions):
+                    # Use 2 decimal places for signature to avoid false matches
+                    # between similar amounts (e.g. $1,000.40 vs $1,000.60)
                     sig = (_normalize_date(t.date),
-                           round(abs(t.amount)))
+                           round(abs(t.amount), 2))
                     json_by_sig[sig].append(idx)
 
                 sig_match_count = defaultdict(int)
@@ -161,7 +163,7 @@ def parse_single_md(path, category_rules=None):
                 enriched = 0
                 for pt in pipe_tx:
                     sig = (_normalize_date(pt.date),
-                           round(abs(pt.amount)))
+                           round(abs(pt.amount), 2))
                     indices = json_by_sig.get(sig, [])
                     match_offset = sig_match_count[sig]
                     if match_offset < len(indices):

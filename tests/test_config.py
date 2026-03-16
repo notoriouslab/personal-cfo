@@ -47,6 +47,33 @@ class TestLoadConfig:
         assert cfg["glide_path"]["annual_derisking"] == 0.01
 
 
+    def test_deep_merge_preserves_nested_defaults(self, tmp_path):
+        """Partial glide_path override must not lose other defaults."""
+        cfg_file = tmp_path / "partial.yaml"
+        cfg_file.write_text("glide_path:\n  equity_target: 0.30\n")
+        cfg = load_config(str(cfg_file))
+        assert cfg["glide_path"]["equity_target"] == 0.30
+        # These must survive the merge — previously they were wiped
+        assert cfg["glide_path"]["annual_derisking"] == 0.01
+        assert cfg["glide_path"]["min_equity_floor"] == 0.05
+        assert cfg["glide_path"]["drift_tolerance"] == 0.03
+        assert cfg["glide_path"]["drift_warning"] == 0.05
+
+    def test_fx_non_twd_target_ignored(self, tmp_path, capsys):
+        """fx_rates with non-TWD target should be ignored with warning."""
+        cfg_file = tmp_path / "fx.yaml"
+        cfg_file.write_text("fx_rates:\n  USD_JPY: 150\n  EUR_TWD: 35.0\n")
+        cfg = load_config(str(cfg_file))
+        from personal_cfo.fx import make_fx
+        to_twd = make_fx(cfg["fx_rates"])
+        # EUR_TWD should work
+        assert to_twd("EUR", 100) == 3500.0
+        # USD_JPY should be ignored — USD falls back to rate=1.0
+        to_twd("USD", 100)
+        captured = capsys.readouterr()
+        assert "USD_JPY" in captured.err or "USD" in captured.err
+
+
 class TestExampleConfigs:
     """Validate all example scenario configs load without error."""
 

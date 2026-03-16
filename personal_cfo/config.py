@@ -21,8 +21,25 @@ _DEFAULTS = {
 }
 
 
+def _deep_merge(base, override):
+    """Recursively merge override into base. Lists and non-dicts are replaced."""
+    result = dict(base)
+    for key, val in override.items():
+        if (key in result and isinstance(result[key], dict)
+                and isinstance(val, dict)):
+            result[key] = _deep_merge(result[key], val)
+        else:
+            result[key] = val
+    return result
+
+
 def load_config(path=None):
-    """Load config from YAML file, falling back to defaults."""
+    """Load config from YAML file, falling back to defaults.
+
+    Uses deep merge: user only needs to specify the keys they want to override.
+    For example, setting only `glide_path: { equity_target: 0.30 }` preserves
+    all other glide_path defaults (annual_derisking, drift_tolerance, etc.).
+    """
     cfg = dict(_DEFAULTS)
 
     if path is None:
@@ -31,12 +48,7 @@ def load_config(path=None):
     if os.path.isfile(path):
         with open(path, "r", encoding="utf-8") as f:
             user_cfg = yaml.safe_load(f) or {}
-        for key in cfg:
-            if key in user_cfg:
-                if isinstance(cfg[key], dict) and isinstance(user_cfg[key], dict):
-                    cfg[key] = {**cfg[key], **user_cfg[key]}
-                else:
-                    cfg[key] = user_cfg[key]
+        cfg = _deep_merge(cfg, user_cfg)
 
     # Validate critical fields
     lp = cfg["life_plan"]

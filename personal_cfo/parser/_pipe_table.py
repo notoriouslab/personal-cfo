@@ -286,7 +286,13 @@ def _parse_assets_from_tables(md_text, vendor=""):
                 if cur:
                     currency = _normalize_currency(cur)
 
-            # For foreign currency, use original balance if available
+            # For foreign currency detail tables, prefer original currency balance
+            # over the TWD-equivalent column. This works because:
+            # - bal_col initially matches the first _BALANCE_KEYWORDS hit (often 約當台幣)
+            # - orig_bal_col matches _ORIG_BAL_KEYWORDS (原幣餘額)
+            # - compute_balance_sheet will apply to_twd() on the original amount
+            # For overview tables this is skipped (is_overview=True) since those
+            # already show 約當台幣 values which we use directly as TWD.
             amount = bal
             if (not is_overview and orig_bal_col is not None
                     and orig_bal_col < len(cells) and currency != "TWD"):

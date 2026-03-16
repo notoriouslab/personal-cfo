@@ -12,8 +12,15 @@ def make_fx(rates_config):
     rates = {}
     for key, val in rates_config.items():
         parts = key.split("_")
-        if len(parts) == 2:
-            rates[parts[0].upper()] = float(val)
+        if len(parts) != 2:
+            continue
+        source, target = parts[0].upper(), parts[1].upper()
+        if target != "TWD":
+            print(f"  WARNING: fx_rates key '{key}' ignored — only XXX_TWD "
+                  f"rates are supported (target must be TWD).",
+                  file=sys.stderr)
+            continue
+        rates[source] = float(val)
 
     warned = set()
 

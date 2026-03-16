@@ -81,7 +81,8 @@ def _classify_tx(desc, cat, amount):
             return IS_SALARY
         if cl in ("dividend", "interest", "interest_income") or "股利" in dl:
             return IS_INVEST_INCOME
-        if "息" in dl and not any(k in dl for k in ("換匯",)):
+        if "息" in dl and not any(k in dl for k in (
+                "換匯", "消息", "休息", "訊息", "信息", "氣息")):
             return IS_INVEST_INCOME
         # Investment-related
         if any(k in dl for k in ("交割", "申購", "贖回", "信託", "買進", "賣出")):
