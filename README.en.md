@@ -41,7 +41,13 @@ Everyone's financial situation is different. This tool gives you a starting poin
 - **Market Anchors** (global indicators for context)
 - **Retirement Glide Path Diagnosis** (are you on track?)
 
-See `examples/sample_output/` for a complete report example.
+See `examples/sample_output/` for a complete report example:
+
+![Income Statement — recurring revenue and expense breakdown](examples/sample_output/2026-03-16-01.png)
+
+![Key Metrics, Cash Flow, and Market Anchors](examples/sample_output/2026-03-16-02.png)
+
+![Retirement Glide Path Diagnosis](examples/sample_output/2026-03-16-03.png)
 
 ## Pipeline
 

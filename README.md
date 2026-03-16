@@ -41,7 +41,13 @@
 - **市場定錨** (全球指標作為背景參考)
 - **退休滑行路徑診斷** (你的退休計畫在軌道上嗎？)
 
-參見 `examples/sample_output/` 的完整報告範例。
+參見 `examples/sample_output/` 的完整報告範例：
+
+![損益表 — 經常性收支分類](examples/sample_output/2026-03-16-01.png)
+
+![關鍵指標、現金流量、市場定錨](examples/sample_output/2026-03-16-02.png)
+
+![退休滑行路徑診斷](examples/sample_output/2026-03-16-03.png)
 
 ## 管道
 
