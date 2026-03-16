@@ -169,7 +169,7 @@ def projection_summary(rows: List[ProjectionYear], cfg: dict) -> dict:
     """Generate summary statistics from projection rows."""
     lp = cfg["life_plan"]
     retirement_age = lp["retirement_age"]
-    life_expectancy = lp.get("life_expectancy", 84)
+    life_expectancy = lp.get("life_expectancy", 90)
 
     current_age = rows[0].age if rows else 0
     years_to_retirement = max(0, retirement_age - current_age)

@@ -388,9 +388,11 @@ def render_projection_report(snapshot, rows, summary, cfg):
     # 4% is US historical; 3.5% is more conservative for non-US markets
     retire_exp = summary.get("retire_expense_start", 0)
     retire_liq = summary.get("retire_start_liquid", 0)
-    if retire_exp > 0:
+    annual_pension = lp.get("expected_pension_monthly", 0) * 12
+    net_retire_exp = max(0, retire_exp - annual_pension)
+    if net_retire_exp > 0:
         for rate, label in [(0.04, "4%"), (0.035, "3.5%")]:
-            req = retire_exp / rate
+            req = net_retire_exp / rate
             ratio = retire_liq / req if req > 0 else 0
             status = "✅" if ratio >= 1.0 else "⚠️"
             pct_label = _pct(ratio) if ratio <= 5 else f"{ratio:.1f}x"
