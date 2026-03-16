@@ -73,16 +73,19 @@ def _classify_tx(desc, cat, amount):
     if any(k in dl for k in _INTERNAL_KEYWORDS):
         return None
 
+    # Known financial interest/dividend keywords (whitelist approach).
+    # Safer than matching bare "息" + blacklist — avoids "消息", "休息", etc.
+    _INTEREST_KEYWORDS = ("利息", "配息", "付息", "孳息", "應收息", "匯息")
+
     if amount > 0:
         # --- Inflows: description-based fallback ---
         # (user-override categories already handled above; these rules
         #  catch transactions with no category but recognizable keywords)
-        if cl in ("salary", "income") or "薪" in dl:
+        if "薪" in dl:
             return IS_SALARY
-        if cl in ("dividend", "interest", "interest_income") or "股利" in dl:
+        if "股利" in dl:
             return IS_INVEST_INCOME
-        if "息" in dl and not any(k in dl for k in (
-                "換匯", "消息", "休息", "訊息", "信息", "氣息")):
+        if any(k in dl for k in _INTEREST_KEYWORDS):
             return IS_INVEST_INCOME
         # Investment-related
         if any(k in dl for k in ("交割", "申購", "贖回", "信託", "買進", "賣出")):

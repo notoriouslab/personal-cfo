@@ -61,4 +61,12 @@ def load_config(path=None):
     if not (0 < gp["equity_target"] <= 1.0):
         raise ValueError("equity_target must be between 0 and 1")
 
+    # Validate fx_rates: only XXX_TWD format supported
+    bad_keys = [k for k in cfg.get("fx_rates", {})
+                if not k.upper().endswith("_TWD")]
+    if bad_keys:
+        raise ValueError(
+            f"fx_rates keys must be in XXX_TWD format. "
+            f"Invalid: {', '.join(bad_keys)}")
+
     return cfg
